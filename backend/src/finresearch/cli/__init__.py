@@ -1,0 +1,2 @@
+"""Product CLI package."""
+

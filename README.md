@@ -25,7 +25,37 @@ AKShare 是方便的聚合取数层，不是最终权威来源。正式结论仍
 
 ```text
 .
+├── backend/
+│   └── src/finresearch/      # FastAPI API, services, repositories, worker
+├── frontend/                 # Next.js product UI
+├── data/                     # local documents, raw data, reports, exports
 ├── app/
+│   └── ...                   # legacy-compatible CLI/data modules reused by backend
+├── tests/
+├── backend/tests/
+├── Makefile
+└── README.md
+```
+
+当前产品化后端已经按模块化单体搭建：
+
+```text
+backend/src/finresearch/
+├── api/routes/               # FastAPI JSON API
+├── services/                 # sync, analysis, research, jobs
+├── repositories/             # persistence boundary
+├── data_sources/             # AKShare, SEC, future CNINFO/exchange sources
+├── database/                 # session and migration bridge
+├── documents/                # parser, chunker, storage
+├── ai/                       # optional Ollama provider
+├── cli/
+└── worker.py
+```
+
+旧 CLI 兼容层仍保留：
+
+```text
+app/
 │   ├── analysis_pipeline.py
 │   ├── ashare_client.py
 │   ├── database.py
@@ -33,12 +63,6 @@ AKShare 是方便的聚合取数层，不是最终权威来源。正式结论仍
 │   ├── financial_store.py
 │   ├── cli.py
 │   └── ...
-├── tests/
-├── README.md
-├── AGENTS.md
-├── pyproject.toml
-├── sample_financials.json
-└── .env.example
 ```
 
 ### 安装
@@ -61,6 +85,81 @@ pip install pypdf     # PDF 文本提取
 ```bash
 export FINRESEARCH_LIBRARY='data/library.sqlite'
 ```
+
+### 产品化本地启动
+
+后端 API：
+
+```bash
+PYTHONPATH=.:backend/src uvicorn finresearch.api.main:app --reload
+```
+
+或者：
+
+```bash
+make api
+```
+
+Worker：
+
+```bash
+make worker
+```
+
+前端：
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+浏览器访问：
+
+```text
+http://localhost:3000
+```
+
+API 默认地址：
+
+```text
+http://localhost:8000
+```
+
+环境变量示例：
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.local.example frontend/.env.local
+```
+
+当前后端 API 已经暴露：
+
+```text
+GET  /health
+GET  /v1/companies/search?q=600519
+GET  /v1/companies/{symbol}
+GET  /v1/companies/{symbol}/summary
+GET  /v1/companies/{symbol}/financials
+GET  /v1/companies/{symbol}/metrics
+GET  /v1/companies/{symbol}/prices
+POST /v1/jobs
+GET  /v1/jobs/{job_id}
+GET  /v1/documents
+POST /v1/documents/search
+POST /v1/research-runs
+GET  /v1/research-runs
+GET  /v1/watchlists
+POST /v1/watchlists/items
+```
+
+产品化后端的 Repository 层已经切换到 SQLAlchemy ORM。默认 `DATABASE_URL` 仍使用本地 SQLite，方便零配置运行；如果要换 PostgreSQL，安装后端依赖并设置：
+
+```env
+DATABASE_URL=postgresql+psycopg://finresearch:password@localhost:5432/finresearch
+```
+
+API、Service、Worker 和前端不需要关心底层是 SQLite 还是 PostgreSQL。
 
 ### A 股研究流水线
 

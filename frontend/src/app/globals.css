@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #f7f8f5;
+  color: #172026;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
