@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+from hashlib import sha256
 from collections.abc import Iterable
 from pathlib import Path
 
+from app.database import connect, migrate, table_exists
 from app.models import DocumentMetadata, EvidenceSnippet
 
 
@@ -69,45 +71,10 @@ def tokenize(text: str) -> list[str]:
 class DocumentStore:
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+        migrate(self.path)
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
-
-    def _init_db(self) -> None:
-        with self._connect() as db:
-            db.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS documents (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    source_path TEXT NOT NULL UNIQUE,
-                    source_type TEXT NOT NULL,
-                    issuer TEXT,
-                    report_period TEXT,
-                    publication_date TEXT,
-                    currency TEXT,
-                    unit TEXT,
-                    url TEXT,
-                    metadata_json TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-
-                CREATE TABLE IF NOT EXISTS chunks (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-                    chunk_index INTEGER NOT NULL,
-                    text TEXT NOT NULL,
-                    start_char INTEGER NOT NULL,
-                    end_char INTEGER NOT NULL,
-                    token_text TEXT NOT NULL,
-                    UNIQUE(document_id, chunk_index)
-                );
-                """
-            )
+        return connect(self.path)
 
     def add_file(
         self,
@@ -125,17 +92,23 @@ class DocumentStore:
             raise ValueError(f"No extractable text found in {path}")
 
         source_path = str(path.resolve())
+        file_hash = hash_file(path)
         metadata = metadata.model_copy(update={"source_path": source_path})
         with self._connect() as db:
             if replace:
-                db.execute("DELETE FROM documents WHERE source_path = ?", (source_path,))
+                existing = db.execute(
+                    "SELECT id FROM documents WHERE source_path = ? OR file_hash = ?",
+                    (source_path, file_hash),
+                ).fetchall()
+                for row in existing:
+                    self._delete_document(db, int(row["id"]))
             cursor = db.execute(
                 """
                 INSERT INTO documents (
                     title, source_path, source_type, issuer, report_period, publication_date,
-                    currency, unit, url, metadata_json
+                    currency, unit, url, source_url, local_path, file_hash, metadata_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     metadata.title,
@@ -147,30 +120,53 @@ class DocumentStore:
                     metadata.currency,
                     metadata.unit,
                     metadata.url,
+                    metadata.url,
+                    source_path,
+                    file_hash,
                     metadata.model_dump_json(),
                 ),
             )
             document_id = int(cursor.lastrowid)
-            db.executemany(
-                """
-                INSERT INTO chunks (
-                    document_id, chunk_index, text, start_char, end_char, token_text
-                )
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    (
-                        document_id,
-                        index,
-                        chunk,
-                        start,
-                        end,
-                        " ".join(tokenize(chunk)),
+            for index, (chunk, start, end) in enumerate(chunks):
+                chunk_cursor = db.execute(
+                    """
+                    INSERT INTO chunks (
+                        document_id, chunk_index, text, start_char, end_char, token_text
                     )
-                    for index, (chunk, start, end) in enumerate(chunks)
-                ],
-            )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (document_id, index, chunk, start, end, " ".join(tokenize(chunk))),
+                )
+                self._insert_fts(
+                    db,
+                    rowid=int(chunk_cursor.lastrowid),
+                    text=chunk,
+                    title=metadata.title,
+                    issuer=metadata.issuer or "",
+                )
         return document_id
+
+    def _delete_document(self, db: sqlite3.Connection, document_id: int) -> None:
+        chunk_ids = [
+            int(row["id"])
+            for row in db.execute("SELECT id FROM chunks WHERE document_id = ?", (document_id,))
+        ]
+        if table_exists(db, "chunks_fts"):
+            for chunk_id in chunk_ids:
+                db.execute("DELETE FROM chunks_fts WHERE rowid = ?", (chunk_id,))
+        db.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
+        db.execute("DELETE FROM documents WHERE id = ?", (document_id,))
+
+    def _insert_fts(self, db: sqlite3.Connection, rowid: int, text: str, title: str, issuer: str) -> None:
+        if not table_exists(db, "chunks_fts"):
+            return
+        try:
+            db.execute(
+                "INSERT INTO chunks_fts(rowid, text, title, issuer) VALUES (?, ?, ?, ?)",
+                (rowid, text, title, issuer),
+            )
+        except sqlite3.DatabaseError:
+            return
 
     def add_files(self, paths: Iterable[Path], issuer: str | None = None) -> list[int]:
         ids: list[int] = []
@@ -187,23 +183,25 @@ class DocumentStore:
             return []
 
         with self._connect() as db:
-            rows = db.execute(
-                """
-                SELECT
-                    d.id AS document_id,
-                    d.title,
-                    d.source_path,
-                    d.issuer,
-                    d.report_period,
-                    d.publication_date,
-                    d.url,
-                    c.chunk_index,
-                    c.text,
-                    c.token_text
-                FROM chunks c
-                JOIN documents d ON d.id = c.document_id
-                """
-            ).fetchall()
+            rows = self._search_fts(db, query, limit)
+            if not rows:
+                rows = db.execute(
+                    """
+                    SELECT
+                        d.id AS document_id,
+                        d.title,
+                        d.source_path,
+                        d.issuer,
+                        d.report_period,
+                        d.publication_date,
+                        d.url,
+                        c.chunk_index,
+                        c.text,
+                        c.token_text
+                    FROM chunks c
+                    JOIN documents d ON d.id = c.document_id
+                    """
+                ).fetchall()
 
         scored: list[EvidenceSnippet] = []
         for row in rows:
@@ -228,6 +226,38 @@ class DocumentStore:
 
         scored.sort(key=lambda item: item.score, reverse=True)
         return scored[:limit]
+
+    def _search_fts(
+        self, db: sqlite3.Connection, query: str, limit: int
+    ) -> list[sqlite3.Row]:
+        if not table_exists(db, "chunks_fts"):
+            return []
+        try:
+            return db.execute(
+                """
+                SELECT
+                    d.id AS document_id,
+                    d.title,
+                    d.source_path,
+                    d.issuer,
+                    d.report_period,
+                    d.publication_date,
+                    d.url,
+                    c.chunk_index,
+                    c.text,
+                    c.token_text,
+                    bm25(chunks_fts) * -1 AS fts_score
+                FROM chunks_fts
+                JOIN chunks c ON c.id = chunks_fts.rowid
+                JOIN documents d ON d.id = c.document_id
+                WHERE chunks_fts MATCH ?
+                ORDER BY bm25(chunks_fts)
+                LIMIT ?
+                """,
+                (quote_fts_query(query), limit),
+            ).fetchall()
+        except sqlite3.DatabaseError:
+            return []
 
     def list_documents(self) -> list[dict[str, object]]:
         with self._connect() as db:
@@ -269,3 +299,16 @@ def _score_chunk(query_terms: list[str], token_text: str, title: str) -> float:
         if term in title_lower:
             score += 0.75
     return score
+
+
+def hash_file(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def quote_fts_query(query: str) -> str:
+    terms = tokenize(query)
+    return " OR ".join(f'"{term}"' for term in terms) or '""'

@@ -7,20 +7,23 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from openai import OpenAI
 from rich.console import Console
 from rich.panel import Panel
 
 from app.agent_reach import AgentReachClient
+from app.analysis_pipeline import build_structured_analysis
+from app.ashare_client import AShareDataClient, AShareDataError
 from app.calculator import calculate_ratios
 from app.config import Settings, default_library_path
 from app.document_store import DocumentStore
+from app.financial_store import FinancialStore
 from app.models import DocumentMetadata, FinancialInputs, ResearchRequest
-from app.openai_research import OpenAIResearchClient
 from app.reporting import build_local_brief, render_local_brief
 from app.sec_client import SECCompanyFactsClient
 
 app = typer.Typer(help="Evidence-first financial research CLI")
+watchlist_app = typer.Typer(help="Manage watchlist symbols")
+app.add_typer(watchlist_app, name="watchlist")
 console = Console()
 
 
@@ -57,6 +60,8 @@ def research(
 
     try:
         settings = Settings.from_env()
+        from app.openai_research import OpenAIResearchClient
+
         report = OpenAIResearchClient(settings).research(request, connector_context)
     except Exception as exc:  # CLI boundary: display a clear error instead of a traceback.
         console.print(f"[red]Research failed:[/red] {exc}")
@@ -149,6 +154,99 @@ def ratios(
 
 
 @app.command()
+def company(
+    symbol: Annotated[str, typer.Argument(help="A-share stock symbol, e.g. 600519")],
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    store = FinancialStore(library)
+    summary = store.get_company(symbol)
+    if summary is None:
+        console.print(f"No local company record for {symbol}. Run: finresearch sync {symbol} --years 5")
+        raise typer.Exit(code=1)
+    console.print_json(data=summary)
+
+
+@app.command()
+def sync(
+    symbol: Annotated[str, typer.Argument(help="A-share stock symbol, e.g. 600519")],
+    years: Annotated[int, typer.Option(help="Years of data to fetch")] = 5,
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+    skip_prices: Annotated[bool, typer.Option(help="Skip price download")] = False,
+) -> None:
+    sync_symbol(symbol=symbol, years=years, library=library, skip_prices=skip_prices)
+
+
+def sync_symbol(symbol: str, years: int, library: Path, skip_prices: bool = False) -> None:
+    store = FinancialStore(library)
+    client = AShareDataClient()
+
+    try:
+        company_record = client.fetch_company(symbol)
+        store.upsert_company(company_record)
+        console.print(f"Synced company profile for {symbol}")
+    except AShareDataError as exc:
+        store.record_sync_error(symbol, "company", str(exc), "akshare")
+        console.print(f"[yellow]Company profile sync failed:[/yellow] {exc}")
+
+    try:
+        facts = client.fetch_financial_facts(symbol, years=years)
+        count = store.upsert_facts(facts)
+        console.print(f"Upserted {count} financial facts")
+    except AShareDataError as exc:
+        store.record_sync_error(symbol, "financial_facts", str(exc), "akshare")
+        console.print(f"[red]Financial fact sync failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    if not skip_prices:
+        try:
+            prices = client.fetch_prices(symbol, years=years)
+            count = store.upsert_prices(prices)
+            console.print(f"Upserted {count} price rows")
+        except AShareDataError as exc:
+            store.record_sync_error(symbol, "prices", str(exc), "akshare")
+            console.print(f"[yellow]Price sync failed:[/yellow] {exc}")
+
+
+@app.command()
+def facts(
+    symbol: Annotated[str, typer.Argument(help="A-share stock symbol, e.g. 600519")],
+    years: Annotated[int, typer.Option(help="Years to display")] = 5,
+    as_of: Annotated[str | None, typer.Option(help="As-of date, YYYY-MM-DD")] = None,
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    store = FinancialStore(library)
+    rows = store.fact_matrix(symbol, years=years, as_of_date=as_of)
+    console.print_json(data=rows)
+
+
+@app.command()
+def analyze(
+    symbol: Annotated[str, typer.Argument(help="A-share stock symbol, e.g. 600519")],
+    years: Annotated[int, typer.Option(help="Years to include")] = 5,
+    sync_first: Annotated[bool, typer.Option("--sync/--no-sync", help="Sync AKShare data first")] = False,
+    as_of: Annotated[str | None, typer.Option(help="As-of date, YYYY-MM-DD")] = None,
+    output: Annotated[Path | None, typer.Option(help="Save Markdown report")] = None,
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    if sync_first:
+        sync_symbol(symbol=symbol, years=years, library=library, skip_prices=False)
+
+    as_of_date = date.fromisoformat(as_of) if as_of else None
+    report = build_structured_analysis(symbol, library_path=library, years=years, as_of_date=as_of_date)
+    FinancialStore(library).save_research_run(
+        query=f"analyze {symbol}",
+        symbol=symbol,
+        as_of_date=as_of,
+        markdown=report,
+    )
+    console.print(Panel(report, title="Structured analysis", border_style="cyan"))
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(report, encoding="utf-8")
+        console.print(f"Saved to {output}")
+
+
+@app.command()
 def ingest(
     files: Annotated[list[Path], typer.Argument(help="PDF/text files to add to a knowledge base")],
     vector_store_id: Annotated[
@@ -157,6 +255,12 @@ def ingest(
     name: Annotated[str, typer.Option(help="Name for a new vector store")] = "financial-reports",
 ) -> None:
     """Upload local reports for OpenAI File Search and print the vector store ID."""
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        console.print("[red]OpenAI package is not installed.[/red] Install it with: pip install openai")
+        raise typer.Exit(code=1) from exc
+
     settings = Settings.from_env()
     client = OpenAI(api_key=settings.openai_api_key, timeout=settings.timeout_seconds)
 
@@ -230,6 +334,48 @@ def sec_facts(
         console.print(f"[red]SEC request failed:[/red] {exc}")
         raise typer.Exit(code=1) from exc
     console.print_json(data=values)
+
+
+@watchlist_app.command("add")
+def watchlist_add(
+    symbol: Annotated[str, typer.Argument(help="Symbol to add")],
+    note: Annotated[str | None, typer.Option(help="Optional note")] = None,
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    FinancialStore(library).add_watchlist(symbol, note)
+    console.print(f"Added {symbol} to watchlist")
+
+
+@watchlist_app.command("list")
+def watchlist_list(
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    console.print_json(data=FinancialStore(library).list_watchlist())
+
+
+@watchlist_app.command("sync")
+def watchlist_sync(
+    years: Annotated[int, typer.Option(help="Years of data to fetch")] = 5,
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    items = FinancialStore(library).list_watchlist()
+    for item in items:
+        symbol = str(item["symbol"])
+        console.print(f"Syncing {symbol}...")
+        sync_symbol(symbol=symbol, years=years, library=library, skip_prices=False)
+
+
+@watchlist_app.command("report")
+def watchlist_report(
+    years: Annotated[int, typer.Option(help="Years to include")] = 5,
+    library: Annotated[Path, typer.Option(help="SQLite library path")] = default_library_path(),
+) -> None:
+    store = FinancialStore(library)
+    reports = []
+    for item in store.list_watchlist():
+        symbol = str(item["symbol"])
+        reports.append(build_structured_analysis(symbol, library_path=library, years=years))
+    console.print("\n\n".join(reports) if reports else "Watchlist is empty.")
 
 
 def main() -> None:

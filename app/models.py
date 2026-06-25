@@ -74,3 +74,47 @@ class LocalResearchBrief(BaseModel):
     snippets: list[EvidenceSnippet]
     assumptions: list[str] = Field(default_factory=list)
     missing_information: list[str] = Field(default_factory=list)
+
+
+class CompanyRecord(BaseModel):
+    symbol: str
+    exchange: str | None = None
+    company_name: str | None = None
+    industry: str | None = None
+    currency: str = "CNY"
+    listing_date: str | None = None
+    status: str = "active"
+
+
+class FinancialFact(BaseModel):
+    symbol: str
+    metric_code: str
+    metric_name: str
+    value: float | None
+    unit: str | None = None
+    currency: str | None = "CNY"
+    period_start: str | None = None
+    period_end: str
+    publication_date: str | None = None
+    report_type: str | None = None
+    statement_type: str | None = None
+    is_consolidated: bool = True
+    source_url: str | None = None
+    source_page: int | None = None
+    source_text: str | None = None
+    data_source: str
+    retrieved_at: str
+
+
+class PriceRecord(BaseModel):
+    symbol: str
+    trade_date: str
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
+    volume: float | None = None
+    amount: float | None = None
+    adjustment_type: str = "none"
+    data_source: str
+    retrieved_at: str

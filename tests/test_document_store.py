@@ -33,6 +33,18 @@ def test_document_store_indexes_and_searches(tmp_path: Path) -> None:
     assert "Operating cash flow" in results[0].text
 
 
+def test_document_store_uses_fts_search(tmp_path: Path) -> None:
+    report = tmp_path / "risk.md"
+    report.write_text("Audit opinion mentioned impairment and revenue recognition.", encoding="utf-8")
+    store = DocumentStore(tmp_path / "library.sqlite")
+    store.add_file(report)
+
+    results = store.search("impairment")
+
+    assert results
+    assert results[0].score > 0
+
+
 def test_document_store_replaces_same_file(tmp_path: Path) -> None:
     report = tmp_path / "report.txt"
     report.write_text("first version revenue", encoding="utf-8")
