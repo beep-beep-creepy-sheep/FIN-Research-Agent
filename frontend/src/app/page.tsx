@@ -1,4 +1,5 @@
 import { Card } from "@/components/Card";
+import { ConnectorStatus } from "@/features/ConnectorStatus";
 import { SearchCompany } from "@/features/SearchCompany";
 
 export default function DashboardPage() {
@@ -20,8 +21,10 @@ export default function DashboardPage() {
         <Card title="Task Center">
           <p className="text-sm text-slate-600">Create sync jobs from the company page and poll status through the API.</p>
         </Card>
+        <Card title="Internet Connectors">
+          <ConnectorStatus />
+        </Card>
       </div>
     </main>
   );
 }
-

@@ -243,3 +243,48 @@ class SyncError(Base):
     data_source: Mapped[str | None] = mapped_column(String(128))
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ExternalSource(Base):
+    __tablename__ = "external_sources"
+    __table_args__ = (UniqueConstraint("platform", "url", name="uq_external_source_platform_url"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    connector: Mapped[str] = mapped_column(String(128), index=True)
+    platform: Mapped[str] = mapped_column(String(128), index=True)
+    external_id: Mapped[str | None] = mapped_column(String(255))
+    title: Mapped[str | None] = mapped_column(String(500))
+    url: Mapped[str] = mapped_column(Text)
+    author: Mapped[str | None] = mapped_column(String(255))
+    published_at: Mapped[str | None] = mapped_column(String(64))
+    fetched_at: Mapped[str] = mapped_column(String(64))
+    content: Mapped[str | None] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(128), index=True)
+    trust_level: Mapped[str] = mapped_column(String(64), default="unknown")
+    verification_status: Mapped[str] = mapped_column(String(64), default="unverified")
+    raw_file_path: Mapped[str | None] = mapped_column(Text)
+    meta: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+
+
+class CompanyExternalSource(Base):
+    __tablename__ = "company_external_sources"
+    __table_args__ = (UniqueConstraint("company_id", "external_source_id", name="uq_company_external_source"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"))
+    external_source_id: Mapped[int] = mapped_column(
+        ForeignKey("external_sources.id", ondelete="CASCADE")
+    )
+    relationship_type: Mapped[str] = mapped_column(String(128))
+    relevance_score: Mapped[float | None] = mapped_column(Float)
+
+
+class ConnectorStatus(Base):
+    __tablename__ = "connector_status"
+
+    connector: Mapped[str] = mapped_column(String(128), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(64), default="unknown")
+    active_backend: Mapped[str | None] = mapped_column(String(128))
+    last_checked_at: Mapped[str | None] = mapped_column(String(64))
+    last_error: Mapped[str | None] = mapped_column(Text)

@@ -37,3 +37,6 @@ export function createSyncJob(symbol: string, years = 5): Promise<Record<string,
   });
 }
 
+export function getConnectors(): Promise<Array<Record<string, unknown>>> {
+  return fetchJson<Array<Record<string, unknown>>>("/v1/connectors");
+}

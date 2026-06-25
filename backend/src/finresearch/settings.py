@@ -16,6 +16,8 @@ class Settings:
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen3:8b"
+    agent_reach_enabled: bool = False
+    exa_enabled: bool = False
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -34,6 +36,8 @@ class Settings:
             llm_provider=os.getenv("LLM_PROVIDER", "ollama"),
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
             ollama_model=os.getenv("OLLAMA_MODEL", "qwen3:8b"),
+            agent_reach_enabled=os.getenv("AGENT_REACH_ENABLED", "false").lower() == "true",
+            exa_enabled=os.getenv("EXA_ENABLED", "false").lower() == "true",
         )
 
     @property
@@ -48,4 +52,3 @@ def get_settings() -> Settings:
     for path in (settings.data_dir, settings.documents_dir, settings.raw_data_dir, settings.reports_dir):
         path.mkdir(parents=True, exist_ok=True)
     return settings
-
