@@ -23,6 +23,17 @@ def test_create_job_endpoint(tmp_path, monkeypatch) -> None:
     assert response.json()["status"] == "queued"
 
 
+def test_create_market_snapshot_job_endpoint(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    client = TestClient(app)
+
+    response = client.post("/v1/jobs", json={"job_type": "market_snapshot", "market": "CN"})
+
+    assert response.status_code == 200
+    assert response.json()["job_type"] == "market_snapshot"
+
+
 def test_connectors_endpoint(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
@@ -49,6 +60,20 @@ def test_external_sources_search_empty_query_path(tmp_path, monkeypatch) -> None
 
     assert response.status_code == 200
     assert response.json()["items"] == []
+
+
+def test_market_overview_empty_state(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    client = TestClient(app)
+
+    response = client.get("/v1/market/overview")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["empty"] is True
+    assert payload["snapshot"]["status"] == "no_snapshot"
+    assert len(payload["charts"]) == 6
 
 
 def test_research_with_exa_disabled_does_not_call_mcporter(tmp_path, monkeypatch) -> None:

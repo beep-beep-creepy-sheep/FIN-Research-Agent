@@ -10,6 +10,7 @@ from finresearch.api.routes import (
     external_sources,
     financials,
     jobs,
+    market,
     prices,
     research,
     watchlists,
@@ -33,6 +34,7 @@ app.include_router(documents.router, prefix="/v1/documents", tags=["documents"])
 app.include_router(research.router, prefix="/v1/research-runs", tags=["research"])
 app.include_router(watchlists.router, prefix="/v1/watchlists", tags=["watchlists"])
 app.include_router(jobs.router, prefix="/v1/jobs", tags=["jobs"])
+app.include_router(market.router, prefix="/v1/market", tags=["market"])
 app.include_router(connectors.router, prefix="/v1/connectors", tags=["connectors"])
 app.include_router(external_sources.router, prefix="/v1/external-sources", tags=["external-sources"])
 
