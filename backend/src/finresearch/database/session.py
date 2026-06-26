@@ -4,12 +4,16 @@ from contextlib import contextmanager
 from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from finresearch.settings import get_settings
 from finresearch.database.models import Base
+
+_INIT_LOCK = Lock()
+_INITIALIZED_URLS: set[str] = set()
 
 
 def database_url() -> str:
@@ -24,8 +28,15 @@ def build_engine(url: str):
 
 
 def init_db() -> None:
-    engine = build_engine(database_url())
-    Base.metadata.create_all(bind=engine)
+    url = database_url()
+    if url in _INITIALIZED_URLS:
+        return
+    with _INIT_LOCK:
+        if url in _INITIALIZED_URLS:
+            return
+        engine = build_engine(url)
+        Base.metadata.create_all(bind=engine)
+        _INITIALIZED_URLS.add(url)
 
 
 def get_library_path() -> Path:
