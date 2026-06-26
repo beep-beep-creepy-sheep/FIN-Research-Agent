@@ -1,4 +1,10 @@
-.PHONY: test lint api worker web
+.PHONY: setup start test lint api worker web
+
+setup:
+	cd frontend && npm install
+
+start:
+	python3 scripts/launch.py
 
 test:
 	PYTHONPATH=.:backend/src pytest -q
@@ -14,4 +20,3 @@ worker:
 
 web:
 	cd frontend && npm run dev
-

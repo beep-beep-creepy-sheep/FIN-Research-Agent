@@ -40,3 +40,14 @@ export function createSyncJob(symbol: string, years = 5): Promise<Record<string,
 export function getConnectors(): Promise<Array<Record<string, unknown>>> {
   return fetchJson<Array<Record<string, unknown>>>("/v1/connectors");
 }
+
+export function getJob(jobId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(`/v1/jobs/${jobId}`);
+}
+
+export function createResearchRun(symbol: string, years = 5): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>("/v1/research-runs", {
+    method: "POST",
+    body: JSON.stringify({ symbol, years }),
+  });
+}

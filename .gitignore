@@ -1,0 +1,22 @@
+.DS_Store
+
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Local runtime data
+data/logs/
+data/*.sqlite
+data/*.sqlite-*
+
+# Local env files
+backend/.env
+.env

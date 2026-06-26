@@ -1,5 +1,6 @@
 import { Card } from "@/components/Card";
 import { ConnectorStatus } from "@/features/ConnectorStatus";
+import { ResearchConsole } from "@/features/ResearchConsole";
 import { SearchCompany } from "@/features/SearchCompany";
 
 export default function DashboardPage() {
@@ -11,12 +12,17 @@ export default function DashboardPage() {
           Sync free local data, inspect evidence, calculate metrics in Python, and generate traceable research reports.
         </p>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card title="Company Search">
-          <SearchCompany />
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <Card title="One-Click Research Console">
+          <ResearchConsole />
         </Card>
         <Card title="Data Quality">
           <p className="text-sm text-slate-600">AKShare records are marked as aggregation data until verified by official filings.</p>
+        </Card>
+      </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <Card title="Company Search">
+          <SearchCompany />
         </Card>
         <Card title="Task Center">
           <p className="text-sm text-slate-600">Create sync jobs from the company page and poll status through the API.</p>
