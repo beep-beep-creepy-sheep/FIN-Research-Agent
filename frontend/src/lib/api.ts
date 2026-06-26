@@ -26,6 +26,18 @@ export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T>
   return response.json() as Promise<T>;
 }
 
+export async function uploadDocument(formData: FormData): Promise<Record<string, unknown>> {
+  const response = await fetch(`${API_BASE}/v1/documents/upload`, {
+    method: "POST",
+    body: formData,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`API ${response.status}: ${await response.text()}`);
+  }
+  return response.json() as Promise<Record<string, unknown>>;
+}
+
 export function getCompanySummary(symbol: string): Promise<CompanySummary> {
   return fetchJson<CompanySummary>(`/v1/companies/${symbol}/summary`);
 }
@@ -50,4 +62,8 @@ export function createResearchRun(symbol: string, years = 5): Promise<Record<str
     method: "POST",
     body: JSON.stringify({ symbol, years }),
   });
+}
+
+export function getResearchRuns(): Promise<Array<Record<string, unknown>>> {
+  return fetchJson<Array<Record<string, unknown>>>("/v1/research-runs");
 }

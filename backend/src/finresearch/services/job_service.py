@@ -12,7 +12,14 @@ class JobService:
         self.repository = JobRepository(library_path)
 
     def create_sync_job(self, symbol: str, years: int = 5) -> dict[str, object]:
-        return self.repository.create("sync_company", {"symbol": symbol, "years": years})
+        payload = {"symbol": symbol.upper(), "years": years}
+        active = self.repository.find_active("sync_company", payload)
+        if active:
+            return active
+        recent = self.repository.find_recent_completed("sync_company", payload)
+        if recent:
+            return recent
+        return self.repository.create("sync_company", payload)
 
     def get(self, job_id: int) -> dict[str, object] | None:
         return self.repository.get(job_id)

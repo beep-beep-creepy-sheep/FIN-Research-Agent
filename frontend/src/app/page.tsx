@@ -1,34 +1,54 @@
 import { Card } from "@/components/Card";
 import { ConnectorStatus } from "@/features/ConnectorStatus";
+import { DocumentUploader } from "@/features/DocumentUploader";
 import { ResearchConsole } from "@/features/ResearchConsole";
+import { ResearchRuns } from "@/features/ResearchRuns";
 import { SearchCompany } from "@/features/SearchCompany";
 
 export default function DashboardPage() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-semibold">Local financial research terminal</h1>
+        <p className="text-sm font-medium text-accent">本地优先 · 免费数据源 · 证据可追溯</p>
+        <h1 className="mt-2 text-3xl font-semibold">财务研究工作台</h1>
         <p className="mt-2 max-w-2xl text-slate-600">
-          Sync free local data, inspect evidence, calculate metrics in Python, and generate traceable research reports.
+          输入股票代码，一键抓取公开数据、计算核心指标，并生成带证据链的研究记录。默认示例
+          600519 是贵州茅台的 A 股代码。
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <Card title="One-Click Research Console">
+        <Card title="一键研究">
           <ResearchConsole />
         </Card>
-        <Card title="Data Quality">
-          <p className="text-sm text-slate-600">AKShare records are marked as aggregation data until verified by official filings.</p>
+        <Card title="现在能做什么">
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>1. 输入公司代码，比如 600519、AAPL。</p>
+            <p>2. 点击同步数据，把公开数据保存到本地 Postgres。</p>
+            <p>3. 打开公司页，查看指标、证据和数据缺口。</p>
+          </div>
         </Card>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <Card title="Company Search">
+        <Card title="快速打开公司">
           <SearchCompany />
         </Card>
-        <Card title="Task Center">
-          <p className="text-sm text-slate-600">Create sync jobs from the company page and poll status through the API.</p>
+        <Card title="任务中心">
+          <p className="text-sm text-slate-600">
+            同步和报告生成都会变成后台任务。点击后稍等几秒，再进入公司页看结果。
+          </p>
         </Card>
-        <Card title="Internet Connectors">
+        <Card title="外部连接器">
           <ConnectorStatus />
+        </Card>
+      </div>
+      <div className="mt-4">
+        <Card title="文档证据库">
+          <DocumentUploader />
+        </Card>
+      </div>
+      <div className="mt-4">
+        <Card title="最近研究记录">
+          <ResearchRuns />
         </Card>
       </div>
     </main>

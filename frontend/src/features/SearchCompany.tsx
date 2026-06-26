@@ -15,9 +15,8 @@ export function SearchCompany() {
         window.location.href = `/companies/${encodeURIComponent(symbol)}`;
       }}
     >
-      <Input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="600519" />
-      <Button type="submit">Open</Button>
+      <Input value={symbol} onChange={(event) => setSymbol(event.target.value.trim())} placeholder="例如 600519" />
+      <Button type="submit">打开</Button>
     </form>
   );
 }
-

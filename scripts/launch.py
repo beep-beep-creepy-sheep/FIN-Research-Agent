@@ -22,6 +22,7 @@ def main() -> int:
     print("=" * 32)
     ensure_dirs()
     ensure_env_files()
+    ensure_agent_reach_setting()
     check_command("python3")
     check_command("node")
     check_command("npm")
@@ -80,6 +81,16 @@ def copy_if_missing(source: Path, target: Path) -> None:
         print(f"Created {target.relative_to(ROOT)}")
 
 
+def ensure_agent_reach_setting() -> None:
+    env_path = ROOT / "backend" / ".env"
+    if not env_path.exists() or shutil.which("agent-reach") is None:
+        return
+    text = env_path.read_text(encoding="utf-8")
+    if "AGENT_REACH_ENABLED=false" in text:
+        env_path.write_text(text.replace("AGENT_REACH_ENABLED=false", "AGENT_REACH_ENABLED=true"), encoding="utf-8")
+        print("Enabled Agent Reach connector in backend/.env")
+
+
 def check_command(command: str) -> None:
     if shutil.which(command) is None:
         raise RuntimeError(f"Missing command: {command}")
@@ -133,6 +144,7 @@ def start_frontend() -> subprocess.Popen[str]:
 
 def python_env() -> dict[str, str]:
     env = os.environ.copy()
+    env.update(read_env_file(ROOT / "backend" / ".env"))
     paths = [str(ROOT), str(ROOT / "backend" / "src")]
     if env.get("PYTHONPATH"):
         paths.append(env["PYTHONPATH"])
@@ -140,6 +152,19 @@ def python_env() -> dict[str, str]:
     env.setdefault("DATA_DIR", str(ROOT / "data"))
     env.setdefault("DATABASE_URL", f"sqlite:///{ROOT / 'data' / 'finresearch.sqlite'}")
     return env
+
+
+def read_env_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
 
 
 def run_logged(argv: list[str], cwd: Path, log_name: str) -> None:

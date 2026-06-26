@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
@@ -18,6 +18,46 @@ class JobRepository:
             session.add(job)
             session.flush()
             return _job_dict(job)
+
+    def find_active(self, job_type: str, payload: dict[str, object]) -> dict[str, object] | None:
+        with session_scope() as session:
+            jobs = session.scalars(
+                select(Job)
+                .where(Job.job_type == job_type, Job.status.in_(("queued", "running")))
+                .order_by(Job.id.desc())
+            ).all()
+            for job in jobs:
+                if _same_payload(job.payload or {}, payload):
+                    data = _job_dict(job)
+                    data["reused"] = True
+                    return data
+        return None
+
+    def find_recent_completed(
+        self, job_type: str, payload: dict[str, object], *, within_minutes: int = 10
+    ) -> dict[str, object] | None:
+        cutoff = datetime.now(UTC) - timedelta(minutes=within_minutes)
+        with session_scope() as session:
+            jobs = session.scalars(
+                select(Job)
+                .where(Job.job_type == job_type, Job.status == "completed")
+                .order_by(Job.id.desc())
+                .limit(20)
+            ).all()
+            for job in jobs:
+                completed_at = job.completed_at
+                if completed_at is None:
+                    continue
+                if completed_at.tzinfo is None:
+                    completed_at = completed_at.replace(tzinfo=UTC)
+                if completed_at < cutoff:
+                    continue
+                if _same_payload(job.payload or {}, payload):
+                    data = _job_dict(job)
+                    data["reused"] = True
+                    data["fresh"] = True
+                    return data
+        return None
 
     def get(self, job_id: int) -> dict[str, object] | None:
         with session_scope() as session:
@@ -71,3 +111,9 @@ def _job_dict(job: Job) -> dict[str, object]:
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
     }
+
+
+def _same_payload(left: dict[str, object], right: dict[str, object]) -> bool:
+    return str(left.get("symbol", "")).upper() == str(right.get("symbol", "")).upper() and int(
+        left.get("years", 5)
+    ) == int(right.get("years", 5))

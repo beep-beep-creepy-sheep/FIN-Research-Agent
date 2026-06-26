@@ -17,6 +17,7 @@ export function ResearchConsole() {
   const [years, setYears] = useState(5);
   const [job, setJob] = useState<JobState>({});
   const [message, setMessage] = useState("");
+  const [report, setReport] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -46,9 +47,13 @@ export function ResearchConsole() {
         progress: Number(created.progress ?? 0),
         stage: String(created.current_stage ?? ""),
       });
-      setMessage("Sync job queued. Keep the worker running.");
+      setMessage(
+        created.reused
+          ? "这家公司刚同步过或正在同步，没有重复创建任务。"
+          : "已创建同步任务。已有记录会更新，不会重复导入同一批财务事实。"
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create sync job");
+      setMessage(error instanceof Error ? error.message : "无法创建同步任务");
     } finally {
       setBusy(false);
     }
@@ -59,9 +64,10 @@ export function ResearchConsole() {
     setMessage("");
     try {
       const run = await createResearchRun(symbol, years);
-      setMessage(`Research run created: ${String(run.id ?? "")}`);
+      setReport(String(run.report_markdown ?? ""));
+      setMessage(`已生成研究记录 #${String(run.id ?? "")}`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create report");
+      setMessage(error instanceof Error ? error.message : "无法创建报告任务");
     } finally {
       setBusy(false);
     }
@@ -69,28 +75,35 @@ export function ResearchConsole() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
-        <Input value={symbol} onChange={(event) => setSymbol(event.target.value)} placeholder="600519" />
-        <Input
-          type="number"
-          min={1}
-          max={20}
-          value={years}
-          onChange={(event) => setYears(Number(event.target.value))}
-        />
+      <div className="grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+        <label className="space-y-1">
+          <span className="block font-medium text-slate-700">股票代码</span>
+          <Input value={symbol} onChange={(event) => setSymbol(event.target.value.trim())} placeholder="例如 600519" />
+        </label>
+        <label className="space-y-1">
+          <span className="block font-medium text-slate-700">回看年数</span>
+          <Input
+            type="number"
+            min={1}
+            max={20}
+            value={years}
+            onChange={(event) => setYears(Number(event.target.value))}
+          />
+        </label>
       </div>
+      <p className="text-xs text-slate-500">600519 = 贵州茅台。深度记录会同时尝试读取本地财务数据、PDF 证据、Agent Reach 和新闻/RSS 来源。</p>
       <div className="flex flex-wrap gap-2">
-        <Button onClick={syncData} disabled={busy}>Sync Data</Button>
+        <Button onClick={syncData} disabled={busy}>同步数据</Button>
         <Button onClick={() => (window.location.href = `/companies/${encodeURIComponent(symbol)}`)}>
-          Open Company
+          打开公司页
         </Button>
-        <Button onClick={generateReport} disabled={busy}>Generate Report</Button>
+        <Button onClick={generateReport} disabled={busy}>生成深度研究记录</Button>
       </div>
       {job.id ? (
         <div className="rounded-md border border-line bg-slate-50 p-3 text-sm">
           <div className="flex justify-between">
-            <span>Job #{job.id}</span>
-            <span>{job.status}</span>
+            <span>任务 #{job.id}</span>
+            <span>{translateStatus(job.status)}</span>
           </div>
           <div className="mt-2 h-2 rounded bg-slate-200">
             <div className="h-2 rounded bg-accent" style={{ width: `${job.progress ?? 0}%` }} />
@@ -99,6 +112,23 @@ export function ResearchConsole() {
         </div>
       ) : null}
       {message ? <p className="text-sm text-slate-600">{message}</p> : null}
+      {report ? (
+        <div className="max-h-[42rem] overflow-auto rounded-md border border-line bg-white p-4 text-sm leading-6 text-slate-700">
+          {report.split("\n").map((line, index) => (
+            <p key={`${index}-${line}`} className={line.startsWith("#") ? "mt-3 font-semibold text-slate-900" : ""}>
+              {line.replace(/^#+\s*/, "") || "\u00a0"}
+            </p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function translateStatus(status?: string) {
+  if (status === "completed") return "已完成";
+  if (status === "failed") return "失败";
+  if (status === "running") return "运行中";
+  if (status === "queued") return "排队中";
+  return status ?? "等待中";
 }

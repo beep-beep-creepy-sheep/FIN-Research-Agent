@@ -1,4 +1,4 @@
-.PHONY: setup start test lint api worker web
+.PHONY: setup start test lint api worker web postgres-config
 
 setup:
 	cd frontend && npm install
@@ -20,3 +20,6 @@ worker:
 
 web:
 	cd frontend && npm run dev
+
+postgres-config:
+	python3 scripts/configure_postgres.py

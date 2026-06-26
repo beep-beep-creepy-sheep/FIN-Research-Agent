@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import math
 from typing import Any
 
 from app.financial_store import infer_exchange
@@ -15,13 +16,22 @@ class AShareDataError(RuntimeError):
 METRIC_ALIASES: dict[str, tuple[str, str]] = {
     "营业总收入": ("revenue", "营业总收入"),
     "营业收入": ("revenue", "营业收入"),
+    "TOTAL_OPERATE_INCOME": ("revenue", "营业总收入"),
+    "OPERATE_INCOME": ("revenue", "营业收入"),
     "净利润": ("net_profit", "净利润"),
+    "NETPROFIT": ("net_profit", "净利润"),
     "归属于母公司所有者的净利润": ("net_profit_parent", "归母净利润"),
+    "PARENT_NETPROFIT": ("net_profit_parent", "归母净利润"),
     "经营活动产生的现金流量净额": ("operating_cash_flow", "经营现金流量净额"),
+    "NETCASH_OPERATE": ("operating_cash_flow", "经营现金流量净额"),
     "资产总计": ("total_assets", "资产总计"),
+    "TOTAL_ASSETS": ("total_assets", "资产总计"),
     "负债合计": ("total_liabilities", "负债合计"),
+    "TOTAL_LIABILITIES": ("total_liabilities", "负债合计"),
     "所有者权益合计": ("total_equity", "所有者权益合计"),
+    "TOTAL_EQUITY": ("total_equity", "所有者权益合计"),
     "归属于母公司所有者权益合计": ("equity_parent", "归母权益"),
+    "TOTAL_PARENT_EQUITY": ("equity_parent", "归母权益"),
 }
 
 
@@ -159,11 +169,15 @@ def normalize_financial_rows(
         year = int(period_end[:4])
         if year < datetime.now(UTC).year - years:
             continue
-        publication_date = _string_value(row, ["公告日期", "发布日期", "披露日期"])
+        publication_date = _string_value(row, ["公告日期", "发布日期", "披露日期", "NOTICE_DATE"])
+        seen_metric_codes: set[str] = set()
         for source_name, (metric_code, metric_name) in METRIC_ALIASES.items():
+            if metric_code in seen_metric_codes:
+                continue
             value = _number_value(row, [source_name])
             if value is None:
                 continue
+            seen_metric_codes.add(metric_code)
             facts.append(
                 FinancialFact(
                     symbol=symbol,
@@ -217,7 +231,8 @@ def _number_value(row: dict[str, Any], keys: list[str]) -> float | None:
         if value in (None, ""):
             continue
         try:
-            return float(str(value).replace(",", ""))
+            number = float(str(value).replace(",", ""))
+            return number if math.isfinite(number) else None
         except ValueError:
             continue
     return None
