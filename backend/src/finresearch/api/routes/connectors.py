@@ -15,5 +15,4 @@ def list_connectors() -> list[dict[str, object]]:
 
 @router.post("/health-check")
 def health_check() -> list[dict[str, object]]:
-    return ExternalResearchService().health()
-
+    return ExternalResearchService().health(force=True)

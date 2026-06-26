@@ -22,7 +22,6 @@ def main() -> int:
     print("=" * 32)
     ensure_dirs()
     ensure_env_files()
-    ensure_agent_reach_setting()
     check_command("python3")
     check_command("node")
     check_command("npm")
@@ -79,16 +78,6 @@ def copy_if_missing(source: Path, target: Path) -> None:
     if source.exists() and not target.exists():
         shutil.copy2(source, target)
         print(f"Created {target.relative_to(ROOT)}")
-
-
-def ensure_agent_reach_setting() -> None:
-    env_path = ROOT / "backend" / ".env"
-    if not env_path.exists() or shutil.which("agent-reach") is None:
-        return
-    text = env_path.read_text(encoding="utf-8")
-    if "AGENT_REACH_ENABLED=false" in text:
-        env_path.write_text(text.replace("AGENT_REACH_ENABLED=false", "AGENT_REACH_ENABLED=true"), encoding="utf-8")
-        print("Enabled Agent Reach connector in backend/.env")
 
 
 def check_command(command: str) -> None:

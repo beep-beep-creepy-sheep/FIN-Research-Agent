@@ -15,7 +15,14 @@ class RSSConnector:
         self.timeout_seconds = timeout_seconds
 
     def health_check(self) -> ConnectorHealth:
-        return ConnectorHealth(name=self.name, status="available", active_backend="stdlib-xml")
+        return ConnectorHealth(
+            name=self.name,
+            status="available",
+            enabled=True,
+            configured=True,
+            available=True,
+            active_backend="stdlib-xml",
+        )
 
     def search(self, query: str, limit: int = 10) -> list[ExternalItem]:
         if query.startswith(("http://", "https://")):
@@ -73,4 +80,3 @@ def _link_href(node: ET.Element) -> str | None:
         if child.tag.endswith("link") and child.attrib.get("href"):
             return child.attrib["href"]
     return None
-

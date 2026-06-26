@@ -6,15 +6,28 @@ from typing import Literal, Protocol
 
 TrustLevel = Literal["primary", "secondary", "community", "unknown"]
 VerificationStatus = Literal["unverified", "corroborated", "rejected"]
-ConnectorState = Literal["available", "unavailable", "disabled", "needs_configuration"]
+ConnectorState = Literal[
+    "available",
+    "unavailable",
+    "disabled",
+    "not_installed",
+    "needs_configuration",
+    "requires_login",
+    "circuit_open",
+]
 
 
 @dataclass(frozen=True)
 class ConnectorHealth:
     name: str
     status: ConnectorState
+    enabled: bool = True
+    configured: bool = False
+    available: bool = False
     active_backend: str | None = None
     requires_login: bool = False
+    failure_count: int = 0
+    retry_after: str | None = None
     last_error: str | None = None
 
 
@@ -43,4 +56,3 @@ class InternetConnector(Protocol):
     def search(self, query: str, limit: int = 10) -> list[ExternalItem]: ...
 
     def read(self, url: str) -> ExternalItem: ...
-

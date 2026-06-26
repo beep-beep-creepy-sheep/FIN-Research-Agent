@@ -13,7 +13,14 @@ class DirectWebConnector:
         self.timeout_seconds = timeout_seconds
 
     def health_check(self) -> ConnectorHealth:
-        return ConnectorHealth(name=self.name, status="available", active_backend="requests")
+        return ConnectorHealth(
+            name=self.name,
+            status="available",
+            enabled=True,
+            configured=True,
+            available=True,
+            active_backend="requests",
+        )
 
     def search(self, query: str, limit: int = 10) -> list[ExternalItem]:
         if query.startswith(("http://", "https://")):
@@ -41,4 +48,3 @@ class DirectWebConnector:
             trust_level="unknown",
             metadata={"backend": "requests", "status_code": response.status_code},
         )
-

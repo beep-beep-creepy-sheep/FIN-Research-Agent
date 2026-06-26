@@ -33,7 +33,8 @@ def test_connectors_endpoint(tmp_path, monkeypatch) -> None:
     assert response.status_code == 200
     names = {item["name"] for item in response.json()}
     assert "direct_web" in names
-    assert "agent_reach" in names
+    assert "agent_reach_exa" in names
+    assert "agent_reach_twitter" in names
 
 
 def test_external_sources_search_empty_query_path(tmp_path, monkeypatch) -> None:
@@ -48,3 +49,31 @@ def test_external_sources_search_empty_query_path(tmp_path, monkeypatch) -> None
 
     assert response.status_code == 200
     assert response.json()["items"] == []
+
+
+def test_research_with_exa_disabled_does_not_call_mcporter(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    monkeypatch.setenv("AGENT_REACH_ENABLED", "true")
+    monkeypatch.setenv("EXA_ENABLED", "false")
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    calls = {"mcporter": 0}
+
+    def fake_search(*_args, **_kwargs):
+        calls["mcporter"] += 1
+        raise AssertionError("mcporter should not be called when EXA_ENABLED=false")
+
+    monkeypatch.setattr(
+        "finresearch.connectors.agent_reach.client.AgentReachCommandClient.exa_search",
+        fake_search,
+    )
+    monkeypatch.setattr(
+        "finresearch.connectors.rss.RSSConnector.search",
+        lambda *_args, **_kwargs: [],
+    )
+    client = TestClient(app)
+
+    response = client.post("/v1/research-runs", json={"symbol": "600519", "years": 5})
+
+    assert response.status_code == 200
+    assert calls["mcporter"] == 0

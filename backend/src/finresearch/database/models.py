@@ -284,7 +284,12 @@ class ConnectorStatus(Base):
 
     connector: Mapped[str] = mapped_column(String(128), primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    configured: Mapped[bool] = mapped_column(Boolean, default=False)
+    available: Mapped[bool] = mapped_column(Boolean, default=False)
+    requires_login: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(64), default="unknown")
     active_backend: Mapped[str | None] = mapped_column(String(128))
     last_checked_at: Mapped[str | None] = mapped_column(String(64))
     last_error: Mapped[str | None] = mapped_column(Text)
+    failure_count: Mapped[int] = mapped_column(Integer, default=0)
+    retry_after: Mapped[str | None] = mapped_column(String(64))

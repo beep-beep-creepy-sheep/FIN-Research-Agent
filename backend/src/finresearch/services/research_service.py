@@ -58,7 +58,6 @@ class ResearchService:
 
 
 def collect_external_context(service: ExternalResearchService, result: AnalysisResult) -> ExternalContext:
-    company = result.company or {}
     name = display_company_name(result)
     query = f"{name} {result.symbol} 财报 业绩 风险 投资者 争议"
     warnings: list[str] = []
@@ -66,13 +65,13 @@ def collect_external_context(service: ExternalResearchService, result: AnalysisR
     coverage: list[str] = []
 
     try:
-        health = service.health()
+        health = service.status_snapshot()
         for row in health:
             status = row.get("status")
             active = row.get("active_backend")
             if status == "available":
                 coverage.append(f"{row.get('name')}: available via {active or 'default'}")
-            elif row.get("name") in {"agent_reach", "direct_web", "rss"}:
+            elif row.get("name") in {"agent_reach_exa", "direct_web", "rss"}:
                 coverage.append(f"{row.get('name')}: {status} {row.get('last_error') or ''}".strip())
     except Exception as exc:
         warnings.append(f"connector_health:{exc}")
@@ -83,7 +82,7 @@ def collect_external_context(service: ExternalResearchService, result: AnalysisR
     )
     bing_news_feed = "https://www.bing.com/news/search?q=" f"{quote(query)}&format=rss"
     for search_query, connectors, limit in [
-        (query, ["agent_reach"], 8),
+        (query, ["agent_reach_exa"], 8),
         (google_news_feed, ["rss"], 8),
         (bing_news_feed, ["rss"], 8),
     ]:
@@ -111,7 +110,6 @@ def dedupe_external_items(items: list[dict[str, object]]) -> list[dict[str, obje
 
 def render_markdown(result: AnalysisResult, external_context: ExternalContext | None = None) -> str:
     external_context = external_context or ExternalContext(items=[], warnings=[], coverage=[])
-    company = result.company or {}
     latest = result.periods[0] if result.periods else {}
     previous = comparable_previous_period(latest, result.periods)
     revenue_growth = growth(latest.get("revenue"), previous.get("revenue"))

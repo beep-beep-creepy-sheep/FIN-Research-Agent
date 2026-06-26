@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from finresearch.connectors.agent_reach.commands import AgentReachConnector
+from finresearch.connectors.agent_reach.commands import (
+    CAPABILITIES,
+    AgentReachExaConnector,
+    AgentReachPlatformConnector,
+)
 from finresearch.connectors.base import InternetConnector
 from finresearch.connectors.direct_web import DirectWebConnector
 from finresearch.connectors.rss import RSSConnector
@@ -13,7 +17,13 @@ def connector_registry() -> dict[str, InternetConnector]:
     connectors: list[InternetConnector] = [
         DirectWebConnector(),
         RSSConnector(),
-        AgentReachConnector(enabled=agent_reach_enabled),
+        AgentReachExaConnector(
+            agent_reach_enabled=agent_reach_enabled,
+            exa_enabled=getattr(settings, "exa_enabled", False),
+        ),
+        *[
+            AgentReachPlatformConnector(capability, enabled=agent_reach_enabled)
+            for capability in CAPABILITIES
+        ],
     ]
     return {connector.name: connector for connector in connectors}
-

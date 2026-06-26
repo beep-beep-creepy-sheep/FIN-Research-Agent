@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ class AgentReachClient:
     adapter invokes the documented upstream commands directly.
     """
 
-    def __init__(self, timeout_seconds: int = 90) -> None:
+    def __init__(self, timeout_seconds: int = 15) -> None:
         self.timeout_seconds = timeout_seconds
 
     def doctor(self) -> CommandResult:
@@ -32,6 +33,8 @@ class AgentReachClient:
         return self._run(["agent-reach", "doctor", "--json"])
 
     def exa_search(self, query: str, num_results: int = 5) -> CommandResult:
+        if os.getenv("EXA_ENABLED", "false").lower() != "true":
+            return CommandResult(False, "", "EXA_ENABLED=false")
         if not shutil.which("mcporter"):
             return CommandResult(False, "", "mcporter is not installed")
         expression = f'exa.web_search_exa(query: {json.dumps(query)}, numResults: {num_results})'
