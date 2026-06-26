@@ -15,6 +15,10 @@ def test_metric_registry_has_required_core_coverage() -> None:
     assert all(definition.applicable_industries for definition in definitions)
     assert all(definition.caveats for definition in definitions)
     assert all(definition.calculation_version for definition in definitions)
+    assert sum(definition.implementation_status == "implemented" for definition in definitions) >= 35
+    assert get_metric_definition("revenue_ttm").period_requirements == "four_contiguous_quarters"
+    assert get_metric_definition("beta").benchmark_required is True
+    assert get_metric_definition("annualized_volatility").calculation_domain == "price"
 
 
 def test_registered_metrics_calculate_core_ratios_and_growth() -> None:
@@ -75,6 +79,7 @@ def test_registered_metrics_report_missing_reasons_without_fabrication() -> None
     assert by_code["net_margin"].as_of == "2025-12-31"
     assert by_code["net_margin"].formula_version == "1.0.0"
     assert by_code["revenue_yoy"].missing_reason is not None
+    assert by_code["revenue_ttm"].missing_reason == "requires_professional_metric_engine"
 
 
 def test_registered_metrics_reject_negative_earnings_for_pe() -> None:

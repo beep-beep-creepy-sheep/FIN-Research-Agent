@@ -78,6 +78,44 @@ def test_strict_as_of_excludes_unknown_publication_date(monkeypatch, tmp_path) -
     assert strict == []
 
 
+def test_typed_periods_strict_as_of_excludes_future_publication(monkeypatch, tmp_path) -> None:
+    _set_database(monkeypatch, tmp_path)
+    fact_repo = FinancialFactRepository()
+    fact_repo.upsert_many(
+        [
+            FinancialFact(
+                symbol="600519",
+                metric_code="revenue",
+                metric_name="营业收入",
+                value=100.0,
+                period_end="2024-12-31",
+                publication_date="2025-04-01",
+                report_type="annual",
+                statement_type="profit_sheet",
+                data_source="fixture",
+                retrieved_at="2026-01-01T00:00:00+00:00",
+            ),
+            FinancialFact(
+                symbol="600519",
+                metric_code="revenue",
+                metric_name="营业收入",
+                value=120.0,
+                period_end="2025-03-31",
+                publication_date="2025-04-30",
+                report_type="quarterly",
+                statement_type="profit_sheet",
+                data_source="fixture",
+                retrieved_at="2026-01-01T00:00:00+00:00",
+            ),
+        ]
+    )
+
+    periods = fact_repo.periods("600519", as_of_date="2025-04-15", strict_as_of=True)
+
+    assert [period.period_end for period in periods] == ["2024-12-31"]
+    assert periods[0].fact_ids("revenue")
+
+
 def test_sqlalchemy_job_repository(monkeypatch, tmp_path) -> None:
     _set_database(monkeypatch, tmp_path)
     repo = JobRepository()

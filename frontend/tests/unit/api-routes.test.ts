@@ -4,6 +4,7 @@ import {
   createResearchRun,
   getAiStatus,
   getCompanyCharts,
+  getCompanyMetrics,
   getConnectors,
   getMarketOverview,
   queryScreener,
@@ -12,6 +13,7 @@ import {
   chartDataState,
   connectorState,
   marketOverviewState,
+  metricObservationState,
   ollamaState,
   pageChartState,
   researchRunState,
@@ -153,6 +155,40 @@ describe("frontend API route contract", () => {
     const connectors = await getConnectors();
     expect(connectorState(connectors[0])).toBe("disabled");
     expect(JSON.stringify(connectors[0])).not.toMatch(/cookie|token|password/i);
+  });
+
+  it("classifies metric states without collapsing them into a generic empty state", async () => {
+    mockFetch(200, [
+      {
+        code: "pe_ttm",
+        implementation_status: "implemented",
+        value: null,
+        quality_status: "missing",
+        missing_reason: "insufficient_contiguous_quarters",
+      },
+    ]);
+
+    const metrics = await getCompanyMetrics("600519");
+
+    expect(metricObservationState(metrics[0])).toBe("implemented_missing_data");
+    expect(metricObservationState({ code: "beta", implementation_status: "defined_only" })).toBe(
+      "not_implemented"
+    );
+    expect(
+      metricObservationState({
+        code: "ev_to_ebitda",
+        implementation_status: "implemented",
+        quality_status: "not_applicable",
+      })
+    ).toBe("not_applicable");
+    expect(
+      metricObservationState({
+        code: "enterprise_value",
+        implementation_status: "implemented",
+        value: 10,
+        warnings: ["basic_ev"],
+      })
+    ).toBe("calculated_with_warnings");
   });
 });
 

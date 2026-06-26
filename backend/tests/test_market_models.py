@@ -33,6 +33,12 @@ def test_metric_definition_repository_syncs_registry(monkeypatch, tmp_path) -> N
     assert count >= 35
     assert len(rows) == count
     assert {row["code"] for row in rows} >= {"net_margin", "roe", "pe"}
+    revenue_ttm = next(row for row in rows if row["code"] == "revenue_ttm")
+    assert revenue_ttm["implementation_status"] == "implemented"
+    assert revenue_ttm["period_requirements"] == "four_contiguous_quarters"
+    beta = next(row for row in rows if row["code"] == "beta")
+    assert beta["benchmark_required"] is True
+    assert beta["calculation_domain"] == "price"
 
 
 def test_market_repository_upserts_snapshot_and_quotes(monkeypatch, tmp_path) -> None:
