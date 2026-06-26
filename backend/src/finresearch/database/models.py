@@ -293,3 +293,217 @@ class ConnectorStatus(Base):
     last_error: Mapped[str | None] = mapped_column(Text)
     failure_count: Mapped[int] = mapped_column(Integer, default=0)
     retry_after: Mapped[str | None] = mapped_column(String(64))
+
+
+class MetricDefinitionModel(Base):
+    __tablename__ = "metric_definitions"
+
+    code: Mapped[str] = mapped_column(String(128), primary_key=True)
+    name_en: Mapped[str] = mapped_column(String(255))
+    name_zh: Mapped[str] = mapped_column(String(255))
+    category: Mapped[str] = mapped_column(String(128), index=True)
+    formula: Mapped[str] = mapped_column(Text)
+    inputs: Mapped[list[str]] = mapped_column(JSON)
+    unit: Mapped[str] = mapped_column(String(64))
+    periodicity: Mapped[str] = mapped_column(String(64))
+    source_requirement: Mapped[str] = mapped_column(Text)
+    missing_behavior: Mapped[str] = mapped_column(String(64), default="mark_missing")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class MetricObservation(Base):
+    __tablename__ = "metric_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "symbol",
+            "metric_code",
+            "period_end",
+            "scope",
+            "data_source",
+            name="uq_metric_observation_source",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"))
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    metric_code: Mapped[str] = mapped_column(String(128), index=True)
+    period_end: Mapped[str] = mapped_column(String(32), index=True)
+    value: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str | None] = mapped_column(String(64))
+    currency: Mapped[str | None] = mapped_column(String(16))
+    scope: Mapped[str] = mapped_column(String(64), default="company")
+    formula: Mapped[str | None] = mapped_column(Text)
+    inputs: Mapped[dict | None] = mapped_column(JSON)
+    source_fact_ids: Mapped[list[int] | None] = mapped_column(JSON)
+    source_price_ids: Mapped[list[int] | None] = mapped_column(JSON)
+    source_snapshot_id: Mapped[int | None] = mapped_column(Integer)
+    data_source: Mapped[str] = mapped_column(String(128), default="finresearch_metric_engine")
+    quality_status: Mapped[str] = mapped_column(String(64), default="calculated")
+    missing_reason: Mapped[str | None] = mapped_column(Text)
+    calculated_at: Mapped[str] = mapped_column(String(64))
+
+
+class MarketSnapshot(Base):
+    __tablename__ = "market_snapshots"
+    __table_args__ = (UniqueConstraint("market", "snapshot_date", "data_source", name="uq_market_snapshot"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    market: Mapped[str] = mapped_column(String(64), default="CN", index=True)
+    snapshot_date: Mapped[str] = mapped_column(String(32), index=True)
+    as_of: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(64), default="draft")
+    headline: Mapped[str | None] = mapped_column(Text)
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    coverage: Mapped[dict] = mapped_column(JSON, default=dict)
+    data_quality: Mapped[dict] = mapped_column(JSON, default=dict)
+    source_count: Mapped[int] = mapped_column(Integer, default=0)
+    data_source: Mapped[str] = mapped_column(String(128), default="local_database")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class IndexQuote(Base):
+    __tablename__ = "index_quotes"
+    __table_args__ = (UniqueConstraint("index_code", "trade_date", "data_source", name="uq_index_quote"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    index_code: Mapped[str] = mapped_column(String(32), index=True)
+    index_name: Mapped[str | None] = mapped_column(String(255))
+    market: Mapped[str | None] = mapped_column(String(64), index=True)
+    trade_date: Mapped[str] = mapped_column(String(32), index=True)
+    open: Mapped[float | None] = mapped_column(Float)
+    high: Mapped[float | None] = mapped_column(Float)
+    low: Mapped[float | None] = mapped_column(Float)
+    close: Mapped[float | None] = mapped_column(Float)
+    prev_close: Mapped[float | None] = mapped_column(Float)
+    change_pct: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[float | None] = mapped_column(Float)
+    amount: Mapped[float | None] = mapped_column(Float)
+    data_source: Mapped[str] = mapped_column(String(128))
+    retrieved_at: Mapped[str] = mapped_column(String(64))
+
+
+class SecurityQuote(Base):
+    __tablename__ = "security_quotes"
+    __table_args__ = (UniqueConstraint("symbol", "trade_date", "data_source", name="uq_security_quote"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"))
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str | None] = mapped_column(String(255))
+    market: Mapped[str | None] = mapped_column(String(64), index=True)
+    sector: Mapped[str | None] = mapped_column(String(128), index=True)
+    industry: Mapped[str | None] = mapped_column(String(255))
+    trade_date: Mapped[str] = mapped_column(String(32), index=True)
+    close: Mapped[float | None] = mapped_column(Float)
+    prev_close: Mapped[float | None] = mapped_column(Float)
+    change_pct: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[float | None] = mapped_column(Float)
+    amount: Mapped[float | None] = mapped_column(Float)
+    market_cap: Mapped[float | None] = mapped_column(Float)
+    pe: Mapped[float | None] = mapped_column(Float)
+    pb: Mapped[float | None] = mapped_column(Float)
+    ps: Mapped[float | None] = mapped_column(Float)
+    turnover_rate: Mapped[float | None] = mapped_column(Float)
+    data_source: Mapped[str] = mapped_column(String(128))
+    retrieved_at: Mapped[str] = mapped_column(String(64))
+
+
+class DailyBar(Base):
+    __tablename__ = "daily_bars"
+    __table_args__ = (UniqueConstraint("symbol", "trade_date", "adjustment_type", "data_source", name="uq_daily_bar"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"))
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    market: Mapped[str | None] = mapped_column(String(64), index=True)
+    trade_date: Mapped[str] = mapped_column(String(32), index=True)
+    open: Mapped[float | None] = mapped_column(Float)
+    high: Mapped[float | None] = mapped_column(Float)
+    low: Mapped[float | None] = mapped_column(Float)
+    close: Mapped[float | None] = mapped_column(Float)
+    volume: Mapped[float | None] = mapped_column(Float)
+    amount: Mapped[float | None] = mapped_column(Float)
+    adjustment_type: Mapped[str] = mapped_column(String(32), default="none")
+    data_source: Mapped[str] = mapped_column(String(128))
+    retrieved_at: Mapped[str] = mapped_column(String(64))
+
+
+class Sector(Base):
+    __tablename__ = "sectors"
+    __table_args__ = (UniqueConstraint("market", "sector_code", "data_source", name="uq_sector"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    market: Mapped[str] = mapped_column(String(64), index=True)
+    sector_code: Mapped[str] = mapped_column(String(128), index=True)
+    sector_name: Mapped[str] = mapped_column(String(255))
+    level: Mapped[int] = mapped_column(Integer, default=1)
+    parent_code: Mapped[str | None] = mapped_column(String(128))
+    data_source: Mapped[str] = mapped_column(String(128))
+    updated_at: Mapped[str] = mapped_column(String(64))
+
+
+class SectorSnapshot(Base):
+    __tablename__ = "sector_snapshots"
+    __table_args__ = (UniqueConstraint("market", "sector_code", "trade_date", "data_source", name="uq_sector_snapshot"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    market: Mapped[str] = mapped_column(String(64), index=True)
+    sector_code: Mapped[str] = mapped_column(String(128), index=True)
+    sector_name: Mapped[str] = mapped_column(String(255))
+    trade_date: Mapped[str] = mapped_column(String(32), index=True)
+    constituents_count: Mapped[int] = mapped_column(Integer, default=0)
+    advance_count: Mapped[int] = mapped_column(Integer, default=0)
+    decline_count: Mapped[int] = mapped_column(Integer, default=0)
+    flat_count: Mapped[int] = mapped_column(Integer, default=0)
+    avg_change_pct: Mapped[float | None] = mapped_column(Float)
+    median_change_pct: Mapped[float | None] = mapped_column(Float)
+    total_amount: Mapped[float | None] = mapped_column(Float)
+    data_source: Mapped[str] = mapped_column(String(128))
+    retrieved_at: Mapped[str] = mapped_column(String(64))
+
+
+class MarketBreadthSnapshot(Base):
+    __tablename__ = "market_breadth_snapshots"
+    __table_args__ = (UniqueConstraint("market", "trade_date", "data_source", name="uq_market_breadth"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    market: Mapped[str] = mapped_column(String(64), index=True)
+    trade_date: Mapped[str] = mapped_column(String(32), index=True)
+    universe_count: Mapped[int] = mapped_column(Integer, default=0)
+    advance_count: Mapped[int] = mapped_column(Integer, default=0)
+    decline_count: Mapped[int] = mapped_column(Integer, default=0)
+    flat_count: Mapped[int] = mapped_column(Integer, default=0)
+    limit_up_count: Mapped[int] = mapped_column(Integer, default=0)
+    limit_down_count: Mapped[int] = mapped_column(Integer, default=0)
+    above_ma20_count: Mapped[int] = mapped_column(Integer, default=0)
+    above_ma60_count: Mapped[int] = mapped_column(Integer, default=0)
+    total_amount: Mapped[float | None] = mapped_column(Float)
+    data_source: Mapped[str] = mapped_column(String(128))
+    retrieved_at: Mapped[str] = mapped_column(String(64))
+
+
+class ScreenDefinition(Base):
+    __tablename__ = "screen_definitions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    filters: Mapped[dict] = mapped_column(JSON, default=dict)
+    sort: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ScreenResult(Base):
+    __tablename__ = "screen_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    screen_definition_id: Mapped[int | None] = mapped_column(ForeignKey("screen_definitions.id", ondelete="SET NULL"))
+    generated_at: Mapped[str] = mapped_column(String(64), index=True)
+    universe: Mapped[str | None] = mapped_column(String(128))
+    filters: Mapped[dict] = mapped_column(JSON, default=dict)
+    result_count: Mapped[int] = mapped_column(Integer, default=0)
+    rows: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    data_quality: Mapped[dict] = mapped_column(JSON, default=dict)
