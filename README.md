@@ -258,6 +258,11 @@ POST /v1/external-sources/read
 
 POST /v1/research-runs
 GET  /v1/research-runs
+GET  /v1/research-runs/{id}
+GET  /v1/research-runs/{id}/status
+
+GET  /v1/ai/status
+POST /v1/ai/warmup
 
 GET  /v1/watchlists
 POST /v1/watchlists/items
@@ -318,7 +323,14 @@ LLM_ENABLED=false
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen3:8b
+OLLAMA_CONNECT_TIMEOUT_SECONDS=2
+OLLAMA_GENERATE_TIMEOUT_SECONDS=45
+OLLAMA_KEEP_ALIVE=10m
 ```
+
+`POST /v1/research-runs` 只创建后台任务并立即返回 `job_id` 与 `research_run_id`。
+外部来源、Agent Reach/Exa、网页读取、Ollama 生成和报告组装都由 Python worker 执行。
+Ollama 不可用时，任务会保留确定性的 Python 基础报告并在报告中写明本地模型不可用。
 
 AI 只用于：
 

@@ -166,4 +166,24 @@ def test_research_with_exa_disabled_does_not_call_mcporter(tmp_path, monkeypatch
     response = client.post("/v1/research-runs", json={"symbol": "600519", "years": 5})
 
     assert response.status_code == 200
+    assert response.json()["status"] == "queued"
+    assert response.json()["job_status"] == "queued"
     assert calls["mcporter"] == 0
+
+
+def test_research_run_status_and_get_endpoints(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    monkeypatch.setenv("LLM_ENABLED", "false")
+    client = TestClient(app)
+
+    created = client.post("/v1/research-runs", json={"symbol": "600519", "years": 5}).json()
+    run_id = created["research_run_id"]
+
+    status = client.get(f"/v1/research-runs/{run_id}/status")
+    detail = client.get(f"/v1/research-runs/{run_id}")
+
+    assert status.status_code == 200
+    assert status.json()["status"] == "queued"
+    assert detail.status_code == 200
+    assert detail.json()["id"] == run_id

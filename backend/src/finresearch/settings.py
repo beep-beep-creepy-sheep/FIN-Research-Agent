@@ -16,6 +16,9 @@ class Settings:
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen3:8b"
+    ollama_connect_timeout_seconds: float = 2.0
+    ollama_generate_timeout_seconds: float = 45.0
+    ollama_keep_alive: str = "10m"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.5"
     agent_reach_enabled: bool = False
@@ -39,6 +42,9 @@ class Settings:
             llm_provider=os.getenv("LLM_PROVIDER", "ollama"),
             ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
             ollama_model=os.getenv("OLLAMA_MODEL", "qwen3:8b"),
+            ollama_connect_timeout_seconds=float(os.getenv("OLLAMA_CONNECT_TIMEOUT_SECONDS", "2")),
+            ollama_generate_timeout_seconds=float(os.getenv("OLLAMA_GENERATE_TIMEOUT_SECONDS", "45")),
+            ollama_keep_alive=os.getenv("OLLAMA_KEEP_ALIVE", "10m"),
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip() or None,
             openai_model=os.getenv("OPENAI_MODEL", "gpt-5.5").strip() or "gpt-5.5",
             agent_reach_enabled=os.getenv("AGENT_REACH_ENABLED", "false").lower() == "true",

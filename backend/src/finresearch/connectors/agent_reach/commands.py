@@ -45,7 +45,7 @@ class AgentReachExaConnector:
         if not self.client.has_command("mcporter"):
             return ConnectorHealth(
                 name=self.name,
-                status="not_installed",
+                status="missing_dependency",
                 enabled=True,
                 configured=False,
                 available=False,
@@ -109,7 +109,7 @@ class AgentReachPlatformConnector:
         if not self.client.has_command("agent-reach"):
             return ConnectorHealth(
                 name=self.name,
-                status="not_installed",
+                status="missing_dependency",
                 enabled=True,
                 configured=False,
                 available=False,

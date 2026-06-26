@@ -10,6 +10,7 @@ ConnectorState = Literal[
     "available",
     "unavailable",
     "disabled",
+    "missing_dependency",
     "not_installed",
     "needs_configuration",
     "requires_login",

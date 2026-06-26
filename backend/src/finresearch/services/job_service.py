@@ -5,6 +5,7 @@ from pathlib import Path
 from finresearch.repositories.jobs import JobRepository
 from finresearch.services.company_sync import SyncCompanyService
 from finresearch.services.market_snapshot import MarketSnapshotService
+from finresearch.services.research_service import ResearchService
 
 
 class JobService:
@@ -32,6 +33,22 @@ class JobService:
             return recent
         return self.repository.create("market_snapshot", payload)
 
+    def create_research_job(
+        self,
+        *,
+        research_run_id: int,
+        symbol: str,
+        years: int = 5,
+        as_of_date: str | None = None,
+    ) -> dict[str, object]:
+        payload = {
+            "research_run_id": research_run_id,
+            "symbol": symbol.upper(),
+            "years": years,
+            "as_of_date": as_of_date,
+        }
+        return self.repository.create("research_run", payload)
+
     def get(self, job_id: int) -> dict[str, object] | None:
         return self.repository.get(job_id)
 
@@ -57,6 +74,21 @@ class JobService:
                 )
                 market = str(payload.get("market", "CN"))
                 result = MarketSnapshotService().generate(market).__dict__
+            elif job["job_type"] == "research_run":
+                run_id = int(payload["research_run_id"])
+                ResearchService(self.library_path).research_repo.mark_running(run_id)
+                self.repository.update(
+                    job_id,
+                    status="running",
+                    progress=25,
+                    current_stage="research_collecting_sources",
+                )
+                result = ResearchService(self.library_path).create_structured_run(
+                    str(payload["symbol"]),
+                    years=int(payload.get("years", 5)),
+                    as_of_date=payload.get("as_of_date"),
+                    run_id=run_id,
+                )
             else:
                 raise ValueError(f"unsupported_job_type:{job['job_type']}")
             self.repository.update(
@@ -68,11 +100,18 @@ class JobService:
                 error_message=None,
             )
         except Exception as exc:
+            payload = dict(job["payload"])
+            if job["job_type"] == "research_run" and payload.get("research_run_id") is not None:
+                ResearchService(self.library_path).research_repo.mark_failed(
+                    int(payload["research_run_id"]), str(exc)
+                )
             self.repository.update(
                 job_id,
                 status="failed",
                 progress=100,
                 current_stage="failed",
                 error_message=str(exc),
+                error_type=type(exc).__name__,
+                retryable=True,
             )
         return self.repository.get(job_id)

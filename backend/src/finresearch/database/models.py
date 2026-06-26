@@ -179,9 +179,12 @@ class ResearchRun(Base):
     query: Mapped[str | None] = mapped_column(Text)
     as_of_date: Mapped[str | None] = mapped_column(String(32))
     status: Mapped[str | None] = mapped_column(String(64), default="completed")
+    job_id: Mapped[int | None] = mapped_column(Integer, index=True)
     structured_result: Mapped[dict | None] = mapped_column(JSON)
     report_markdown: Mapped[str | None] = mapped_column(Text)
     result_markdown: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -226,7 +229,10 @@ class Job(Base):
     result: Mapped[dict | None] = mapped_column(JSON)
     progress: Mapped[int] = mapped_column(Integer, default=0)
     current_stage: Mapped[str | None] = mapped_column(String(128))
+    error_type: Mapped[str | None] = mapped_column(String(128))
     error_message: Mapped[str | None] = mapped_column(Text)
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    retryable: Mapped[bool | None] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)

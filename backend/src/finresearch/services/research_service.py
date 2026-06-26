@@ -30,6 +30,7 @@ class ResearchService:
         *,
         years: int = 5,
         as_of_date: str | None = None,
+        run_id: int | None = None,
     ) -> dict[str, object]:
         result = self.analysis_service.execute(symbol, years=years, as_of_date=as_of_date)
         external_context = collect_external_context(self.external_research, result)
@@ -50,8 +51,27 @@ class ResearchService:
                     "coverage": external_context.coverage,
                 },
             },
+            run_id=run_id,
+            citations=build_citations(result, external_context),
         )
         return {"id": run_id, "structured_result": result.__dict__, "report_markdown": markdown}
+
+    def create_background_run(
+        self,
+        symbol: str,
+        *,
+        years: int = 5,
+        as_of_date: str | None = None,
+    ) -> dict[str, object]:
+        run_id = self.research_repo.create_pending(
+            query=f"analyze {symbol}",
+            symbol=symbol,
+            as_of_date=as_of_date,
+        )
+        return {"id": run_id, "research_run_id": run_id, "status": "queued", "symbol": symbol, "years": years}
+
+    def get_run(self, run_id: int) -> dict[str, object] | None:
+        return self.research_repo.get(run_id)
 
     def list_runs(self) -> list[dict[str, object]]:
         return self.research_repo.list()
@@ -106,6 +126,30 @@ def dedupe_external_items(items: list[dict[str, object]]) -> list[dict[str, obje
         seen.add(key)
         deduped.append(item)
     return deduped[:12]
+
+
+def build_citations(result: AnalysisResult, external_context: ExternalContext) -> list[dict[str, object]]:
+    citations: list[dict[str, object]] = []
+    for item in external_context.items:
+        citations.append(
+            {
+                "claim": item.get("title") or "external source",
+                "source_url": item.get("url"),
+                "support_status": item.get("verification_status") or "unverified",
+            }
+        )
+    for item in result.evidence:
+        url = item.get("url") or item.get("source_url") or item.get("source_path")
+        citations.append(
+            {
+                "claim": item.get("title") or item.get("text") or "local document evidence",
+                "source_url": url,
+                "document_id": item.get("document_id"),
+                "page_number": item.get("page_number"),
+                "support_status": "local_evidence",
+            }
+        )
+    return citations
 
 
 def render_markdown(result: AnalysisResult, external_context: ExternalContext | None = None) -> str:

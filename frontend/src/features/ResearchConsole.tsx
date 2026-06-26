@@ -64,8 +64,14 @@ export function ResearchConsole() {
     setMessage("");
     try {
       const run = await createResearchRun(symbol, years);
-      setReport(String(run.report_markdown ?? ""));
-      setMessage(`已生成研究记录 #${String(run.id ?? "")}`);
+      setReport("");
+      setJob({
+        id: String(run.job_id ?? ""),
+        status: String(run.job_status ?? run.status ?? "queued"),
+        progress: 0,
+        stage: "queued",
+      });
+      setMessage(`已创建研究任务 #${String(run.job_id ?? "")}，研究记录 #${String(run.research_run_id ?? run.id ?? "")} 将由 worker 后台生成。`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "无法创建报告任务");
     } finally {

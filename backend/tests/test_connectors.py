@@ -23,7 +23,7 @@ def test_agent_reach_exa_disabled_skips_mcporter(monkeypatch) -> None:
     assert calls["mcporter"] == 0
 
 
-def test_agent_reach_exa_missing_mcporter_is_not_installed(monkeypatch) -> None:
+def test_agent_reach_exa_missing_mcporter_is_missing_dependency(monkeypatch) -> None:
     monkeypatch.setattr(
         "finresearch.connectors.agent_reach.client.AgentReachCommandClient.has_command",
         lambda _self, command: command != "mcporter",
@@ -31,7 +31,7 @@ def test_agent_reach_exa_missing_mcporter_is_not_installed(monkeypatch) -> None:
 
     health = AgentReachExaConnector(agent_reach_enabled=True, exa_enabled=True).health_check()
 
-    assert health.status == "not_installed"
+    assert health.status == "missing_dependency"
     assert "mcporter" in str(health.last_error)
 
 

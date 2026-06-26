@@ -49,7 +49,7 @@ function displayConnectorName(name: string) {
 function displayStatus(status: string, requiresLogin: boolean) {
   if (status === "available") return "可用";
   if (status === "disabled") return "未启用";
-  if (status === "not_installed") return "未安装";
+  if (status === "not_installed" || status === "missing_dependency") return "未安装";
   if (status === "needs_configuration") return "未配置";
   if (status === "requires_login" || requiresLogin) return "需要登录";
   if (status === "circuit_open") return "暂时熔断";

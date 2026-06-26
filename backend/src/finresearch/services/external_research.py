@@ -86,7 +86,7 @@ class ExternalResearchService:
 
 def _should_skip(health: dict[str, object]) -> bool:
     status = str(health.get("status") or "")
-    if status in {"disabled", "not_installed", "needs_configuration", "requires_login"}:
+    if status in {"disabled", "missing_dependency", "not_installed", "needs_configuration", "requires_login"}:
         return True
     if status != "circuit_open":
         return False
