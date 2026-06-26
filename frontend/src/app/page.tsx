@@ -39,6 +39,9 @@ export default function DashboardPage() {
             <Link href="/market" className="inline-block font-medium text-accent">
               打开市场终端
             </Link>
+            <Link href="/screener" className="ml-4 inline-block font-medium text-accent">
+              打开筛选器
+            </Link>
           </div>
         </Card>
         <Card title="外部连接器">

@@ -106,3 +106,10 @@ export function createMarketSnapshotJob(market = "CN"): Promise<Record<string, u
     body: JSON.stringify({ job_type: "market_snapshot", market }),
   });
 }
+
+export function queryScreener(filters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>("/v1/screener/query", {
+    method: "POST",
+    body: JSON.stringify(filters),
+  });
+}

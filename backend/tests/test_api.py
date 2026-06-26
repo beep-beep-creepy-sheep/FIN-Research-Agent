@@ -95,6 +95,52 @@ def test_company_charts_endpoint_empty_state(tmp_path, monkeypatch) -> None:
     assert payload[0]["empty"] is True
 
 
+def test_screener_query_uses_local_financial_facts(tmp_path, monkeypatch) -> None:
+    from app.models import CompanyRecord, FinancialFact
+    from finresearch.repositories.companies import CompanyRepository
+    from finresearch.repositories.financial_facts import FinancialFactRepository
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    CompanyRepository().upsert(
+        CompanyRecord(symbol="600519", company_name="贵州茅台", exchange="SSE", industry="白酒")
+    )
+    FinancialFactRepository().upsert_many(
+        [
+            FinancialFact(
+                symbol="600519",
+                metric_code="revenue",
+                metric_name="营业收入",
+                value=100.0,
+                period_end="2025-12-31",
+                report_type="annual",
+                statement_type="profit_sheet",
+                data_source="fixture",
+                retrieved_at="2026-06-26T00:00:00+00:00",
+            ),
+            FinancialFact(
+                symbol="600519",
+                metric_code="net_profit_parent",
+                metric_name="归母净利润",
+                value=30.0,
+                period_end="2025-12-31",
+                report_type="annual",
+                statement_type="profit_sheet",
+                data_source="fixture",
+                retrieved_at="2026-06-26T00:00:00+00:00",
+            ),
+        ]
+    )
+    client = TestClient(app)
+
+    response = client.post("/v1/screener/query", json={"min_net_margin": 0.2})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == 1
+    assert payload["rows"][0]["symbol"] == "600519"
+
+
 def test_research_with_exa_disabled_does_not_call_mcporter(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
