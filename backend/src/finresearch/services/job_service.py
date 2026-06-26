@@ -4,6 +4,7 @@ from pathlib import Path
 
 from finresearch.repositories.jobs import JobRepository
 from finresearch.services.company_sync import SyncCompanyService
+from finresearch.services.market_snapshot import MarketSnapshotService
 
 
 class JobService:
@@ -21,6 +22,16 @@ class JobService:
             return recent
         return self.repository.create("sync_company", payload)
 
+    def create_market_snapshot_job(self, market: str = "CN") -> dict[str, object]:
+        payload = {"market": market.upper()}
+        active = self.repository.find_active("market_snapshot", payload)
+        if active:
+            return active
+        recent = self.repository.find_recent_completed("market_snapshot", payload)
+        if recent:
+            return recent
+        return self.repository.create("market_snapshot", payload)
+
     def get(self, job_id: int) -> dict[str, object] | None:
         return self.repository.get(job_id)
 
@@ -31,17 +42,29 @@ class JobService:
         job = jobs[0]
         job_id = int(job["id"])
         payload = dict(job["payload"])
-        symbol = str(payload["symbol"])
-        years = int(payload.get("years", 5))
         self.repository.update(job_id, status="running", progress=10, current_stage="syncing")
         try:
-            result = SyncCompanyService(self.library_path).execute(symbol, years=years)
+            if job["job_type"] == "sync_company":
+                symbol = str(payload["symbol"])
+                years = int(payload.get("years", 5))
+                result = SyncCompanyService(self.library_path).execute(symbol, years=years).__dict__
+            elif job["job_type"] == "market_snapshot":
+                self.repository.update(
+                    job_id,
+                    status="running",
+                    progress=50,
+                    current_stage="building_market_snapshot",
+                )
+                market = str(payload.get("market", "CN"))
+                result = MarketSnapshotService().generate(market).__dict__
+            else:
+                raise ValueError(f"unsupported_job_type:{job['job_type']}")
             self.repository.update(
                 job_id,
                 status="completed",
                 progress=100,
                 current_stage="completed",
-                result=result.__dict__,
+                result=result,
                 error_message=None,
             )
         except Exception as exc:

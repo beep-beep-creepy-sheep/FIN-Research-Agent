@@ -114,6 +114,8 @@ def _job_dict(job: Job) -> dict[str, object]:
 
 
 def _same_payload(left: dict[str, object], right: dict[str, object]) -> bool:
+    if "symbol" not in left and "symbol" not in right:
+        return left == right
     return str(left.get("symbol", "")).upper() == str(right.get("symbol", "")).upper() and int(
         left.get("years", 5)
     ) == int(right.get("years", 5))
