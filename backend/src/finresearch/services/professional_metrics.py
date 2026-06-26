@@ -60,7 +60,7 @@ class ProfessionalMetricEngine:
             selected[-1].period_end,
             context,
             f"{code} = sum({used_code} from four contiguous comparable quarters)",
-            {used_code: [quarter.values[used_code] for quarter in selected]},
+            {used_code: [quarter.values[used_code] for quarter in selected], **_window_inputs(selected)},
             _quarter_fact_ids(selected, used_code),
             _quarter_urls(selected, used_code),
             unit="currency",
@@ -101,12 +101,16 @@ class ProfessionalMetricEngine:
         context: CalculationContext,
         quarters: tuple[NormalizedQuarter, ...],
     ) -> MetricResult:
-        ocf, ocf_q, ocf_reason = self.periods.ttm(quarters, "operating_cash_flow")
-        capex, capex_q, capex_reason = self.periods.ttm(quarters, "capital_expenditure")
-        if ocf_reason or capex_reason or ocf is None or capex is None:
-            return _missing_financial("fcf_ttm", ocf_reason or capex_reason or "missing_input", context)
+        selected, reason = self.periods.select_common_ttm_window(
+            quarters,
+            ("operating_cash_flow", "capital_expenditure"),
+            as_of_period_end=_as_of_period_end(context),
+        )
+        if reason or not selected:
+            return _missing_financial("fcf_ttm", reason or "insufficient_common_ttm_window", context)
+        ocf = _sum_quarters(selected, "operating_cash_flow")
+        capex = _sum_quarters(selected, "capital_expenditure")
         capex_outflow = -capex if capex < 0 else capex
-        selected = ocf_q or capex_q
         warnings = ("capital_expenditure_positive_treated_as_outflow",) if capex > 0 else ()
         return _financial_result(
             "fcf_ttm",
@@ -115,9 +119,14 @@ class ProfessionalMetricEngine:
             selected[-1].period_end,
             context,
             "FCF TTM = TTM operating cash flow - standardized TTM capital expenditure outflow",
-            {"operating_cash_flow_ttm": ocf, "capital_expenditure_ttm": capex, "capex_outflow": capex_outflow},
-            _quarter_fact_ids(ocf_q, "operating_cash_flow") + _quarter_fact_ids(capex_q, "capital_expenditure"),
-            _quarter_urls(ocf_q, "operating_cash_flow") + _quarter_urls(capex_q, "capital_expenditure"),
+            {
+                "operating_cash_flow_ttm": ocf,
+                "capital_expenditure_ttm": capex,
+                "capex_outflow": capex_outflow,
+                **_window_inputs(selected),
+            },
+            _quarter_fact_ids(selected, "operating_cash_flow") + _quarter_fact_ids(selected, "capital_expenditure"),
+            _quarter_urls(selected, "operating_cash_flow") + _quarter_urls(selected, "capital_expenditure"),
             unit="currency",
             currency=selected[-1].currency or context.currency,
             warnings=warnings,
@@ -128,8 +137,13 @@ class ProfessionalMetricEngine:
         context: CalculationContext,
         quarters: tuple[NormalizedQuarter, ...],
     ) -> MetricResult:
-        direct, direct_q, direct_reason = self.periods.ttm(quarters, "ebitda")
-        if direct_reason is None and direct is not None:
+        direct_q, direct_reason = self.periods.select_common_ttm_window(
+            quarters,
+            ("ebitda",),
+            as_of_period_end=_as_of_period_end(context),
+        )
+        if direct_reason is None and direct_q:
+            direct = _sum_quarters(direct_q, "ebitda")
             return _financial_result(
                 "ebitda_ttm",
                 direct,
@@ -137,18 +151,22 @@ class ProfessionalMetricEngine:
                 direct_q[-1].period_end,
                 context,
                 "EBITDA TTM = sum(direct disclosed EBITDA for four contiguous quarters)",
-                {"ebitda_quarters": [quarter.value("ebitda") for quarter in direct_q]},
+                {"ebitda_quarters": [quarter.value("ebitda") for quarter in direct_q], **_window_inputs(direct_q)},
                 _quarter_fact_ids(direct_q, "ebitda"),
                 _quarter_urls(direct_q, "ebitda"),
                 unit="currency",
                 currency=direct_q[-1].currency or context.currency,
             )
-        ebit, ebit_q, ebit_reason = self.periods.ttm(quarters, "ebit")
-        depreciation, dep_q, dep_reason = self.periods.ttm(quarters, "depreciation")
-        amortization, amort_q, amort_reason = self.periods.ttm(quarters, "amortization")
-        if ebit_reason or dep_reason or amort_reason or ebit is None or depreciation is None or amortization is None:
-            return _missing_financial("ebitda_ttm", "missing_ebit_depreciation_or_amortization", context)
-        selected = ebit_q
+        selected, reason = self.periods.select_common_ttm_window(
+            quarters,
+            ("ebit", "depreciation", "amortization"),
+            as_of_period_end=_as_of_period_end(context),
+        )
+        if reason or not selected:
+            return _missing_financial("ebitda_ttm", reason or "missing_ebit_depreciation_or_amortization", context)
+        ebit = _sum_quarters(selected, "ebit")
+        depreciation = _sum_quarters(selected, "depreciation")
+        amortization = _sum_quarters(selected, "amortization")
         return _financial_result(
             "ebitda_ttm",
             ebit + depreciation + amortization,
@@ -156,9 +174,9 @@ class ProfessionalMetricEngine:
             selected[-1].period_end,
             context,
             "EBITDA TTM = EBIT TTM + depreciation TTM + amortization TTM",
-            {"ebit_ttm": ebit, "depreciation_ttm": depreciation, "amortization_ttm": amortization},
-            _quarter_fact_ids(ebit_q, "ebit") + _quarter_fact_ids(dep_q, "depreciation") + _quarter_fact_ids(amort_q, "amortization"),
-            _quarter_urls(ebit_q, "ebit") + _quarter_urls(dep_q, "depreciation") + _quarter_urls(amort_q, "amortization"),
+            {"ebit_ttm": ebit, "depreciation_ttm": depreciation, "amortization_ttm": amortization, **_window_inputs(selected)},
+            _quarter_fact_ids(selected, "ebit") + _quarter_fact_ids(selected, "depreciation") + _quarter_fact_ids(selected, "amortization"),
+            _quarter_urls(selected, "ebit") + _quarter_urls(selected, "depreciation") + _quarter_urls(selected, "amortization"),
             unit="currency",
             currency=selected[-1].currency or context.currency,
         )
@@ -266,7 +284,7 @@ class ProfessionalMetricEngine:
             fcf_ttm.period_end,
             context,
             "FCF Yield = FCF TTM / equity market capitalization",
-            {**market_inputs, "fcf_ttm": fcf_ttm.value, "market_price_date": price_date},
+            {**market_inputs, "fcf_ttm": fcf_ttm.value, "market_price_date": price_date, **_ttm_window_from_result(fcf_ttm)},
             fcf_ttm.source_fact_ids + market_fact_ids,
             fcf_ttm.source_urls,
             source_price_ids=price_ids,
@@ -336,7 +354,7 @@ class ProfessionalMetricEngine:
             net_profit_ttm.period_end,
             context,
             "PE TTM = market cap / net profit attributable to parent TTM",
-            {**market_inputs, "net_profit_ttm": net_profit_ttm.value, "market_price_date": price_date},
+            {**market_inputs, "net_profit_ttm": net_profit_ttm.value, "market_price_date": price_date, **_ttm_window_from_result(net_profit_ttm)},
             net_profit_ttm.source_fact_ids + market_fact_ids,
             net_profit_ttm.source_urls,
             source_price_ids=price_ids,
@@ -351,14 +369,35 @@ class ProfessionalMetricEngine:
     ) -> MetricResult:
         if _industry_not_applicable(context.industry):
             return MetricResult(code="roic", value=None, quality_status="not_applicable", missing_reason="not_applicable_industry")
-        ebit, ebit_q, ebit_reason = self.periods.ttm(quarters, "ebit")
-        if ebit_reason or ebit is None:
-            return _missing_financial("roic", "missing_ebit_ttm", context)
-        tax, tax_q, _tax_reason = self.periods.ttm(quarters, "income_tax")
-        pbt, pbt_q, _pbt_reason = self.periods.ttm(quarters, "profit_before_tax")
+        tax_window, tax_window_reason = self.periods.select_common_ttm_window(
+            quarters,
+            ("ebit", "income_tax", "profit_before_tax"),
+            as_of_period_end=_as_of_period_end(context),
+        )
+        ebit_only_window, ebit_reason = self.periods.select_common_ttm_window(
+            quarters,
+            ("ebit",),
+            as_of_period_end=_as_of_period_end(context),
+        )
+        if tax_window:
+            selected = tax_window
+            ebit = _sum_quarters(selected, "ebit")
+            tax = _sum_quarters(selected, "income_tax")
+            pbt = _sum_quarters(selected, "profit_before_tax")
+            ttm_warning = None
+        elif ebit_only_window:
+            selected = ebit_only_window
+            ebit = _sum_quarters(selected, "ebit")
+            tax = None
+            pbt = None
+            ttm_warning = tax_window_reason or "misaligned_ttm_components"
+        else:
+            return _missing_financial("roic", ebit_reason or "missing_ebit_ttm", context)
         tax_rate = 0.25
         warnings: list[str] = []
-        if tax is not None and pbt not in (None, 0):
+        if ttm_warning:
+            warnings.append(ttm_warning)
+        if tax is not None and pbt is not None and pbt != 0:
             tax_rate = max(0.0, min(0.5, tax / pbt))
         else:
             warnings.append("normalized_tax_rate_assumption_used")
@@ -379,17 +418,17 @@ class ProfessionalMetricEngine:
             return _missing_financial("roic", "zero_denominator", context)
         nopat = ebit * (1 - tax_rate)
         fact_ids = (
-            _quarter_fact_ids(ebit_q, "ebit")
-            + _quarter_fact_ids(tax_q, "income_tax")
-            + _quarter_fact_ids(pbt_q, "profit_before_tax")
+            _quarter_fact_ids(selected, "ebit")
+            + _quarter_fact_ids(selected, "income_tax")
+            + _quarter_fact_ids(selected, "profit_before_tax")
             + begin.fact_ids("interest_bearing_debt", "total_debt", "total_equity", "equity_parent", "non_controlling_interest")
             + end.fact_ids("interest_bearing_debt", "total_debt", "total_equity", "equity_parent", "non_controlling_interest")
         )
         return _financial_result(
             "roic",
             nopat / average_invested,
-            ebit_q[0].period_start,
-            ebit_q[-1].period_end,
+            selected[0].period_start,
+            selected[-1].period_end,
             context,
             "ROIC = EBIT TTM * (1 - normalized tax rate) / average invested capital",
             {
@@ -399,6 +438,7 @@ class ProfessionalMetricEngine:
                 "begin_invested_capital": begin_capital,
                 "end_invested_capital": end_capital,
                 "average_invested_capital": average_invested,
+                **_window_inputs(selected),
             },
             fact_ids,
             _urls_for_ids(context.financial_periods, fact_ids),
@@ -502,6 +542,34 @@ def _missing_financial(
 
 def _latest_period(periods: tuple[FinancialPeriod, ...]) -> FinancialPeriod | None:
     return sorted(periods, key=lambda period: period.period_end)[-1] if periods else None
+
+
+def _as_of_period_end(context: CalculationContext) -> str | None:
+    latest = _latest_period(context.financial_periods)
+    return latest.period_end if latest else None
+
+
+def _sum_quarters(quarters: tuple[NormalizedQuarter, ...], code: str) -> float:
+    return sum(quarter.values[code] for quarter in quarters)
+
+
+def _window_inputs(quarters: tuple[NormalizedQuarter, ...]) -> dict[str, object]:
+    return {
+        "selected_quarters": [quarter.key.end_date for quarter in quarters],
+        "period_start": quarters[0].period_start if quarters else None,
+        "period_end": quarters[-1].period_end if quarters else None,
+    }
+
+
+def _ttm_window_from_result(result: MetricResult) -> dict[str, object]:
+    selected = result.input_values.get("selected_quarters")
+    if selected is None:
+        return {}
+    return {
+        "selected_quarters": selected,
+        "period_start": result.input_values.get("period_start", result.period_start),
+        "period_end": result.input_values.get("period_end", result.period_end),
+    }
 
 
 def _quarter_fact_ids(quarters: tuple[NormalizedQuarter, ...], code: str) -> tuple[int, ...]:

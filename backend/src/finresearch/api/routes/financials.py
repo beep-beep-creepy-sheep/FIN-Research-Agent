@@ -8,8 +8,7 @@ from finresearch.api.dependencies import library_path
 from finresearch.metrics import CalculationContext, MetricResult, list_metric_definitions
 from finresearch.repositories.financial_facts import FinancialFactRepository
 from finresearch.repositories.prices import PriceRepository
-from finresearch.services.price_analytics import PriceAnalyticsService
-from finresearch.services.professional_metrics import ProfessionalMetricEngine
+from finresearch.services.metric_calculation import MetricCalculationService
 
 
 router = APIRouter()
@@ -50,8 +49,7 @@ def get_metrics(
         strict_as_of=as_of is not None,
         currency=latest_currency,
     )
-    results = ProfessionalMetricEngine().calculate(context)
-    results.extend(PriceAnalyticsService().calculate(prices))
+    results = MetricCalculationService().calculate(context, symbol=symbol)
     definitions = {definition.code: definition for definition in list_metric_definitions()}
     return [_metric_result_dict(result, definitions) for result in results]
 
@@ -80,6 +78,8 @@ def _metric_result_dict(
         "currency": result.currency,
         "unit": result.unit,
         "price_source": result.price_source,
+        "data_source": result.price_source,
+        "selected_source_reason": result.selected_source_reason,
         "benchmark_code": result.benchmark_code,
         "benchmark_source": result.benchmark_source,
         "start_date": result.start_date,

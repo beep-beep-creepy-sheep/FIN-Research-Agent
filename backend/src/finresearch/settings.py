@@ -23,6 +23,14 @@ class Settings:
     openai_model: str = "gpt-5.5"
     agent_reach_enabled: bool = False
     exa_enabled: bool = False
+    cn_stock_adjustment_type: str = "qfq"
+    price_source_priority: tuple[str, ...] = (
+        "local_prices",
+        "akshare",
+        "exchange",
+        "fixture_price",
+        "test",
+    )
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -49,6 +57,15 @@ class Settings:
             openai_model=os.getenv("OPENAI_MODEL", "gpt-5.5").strip() or "gpt-5.5",
             agent_reach_enabled=os.getenv("AGENT_REACH_ENABLED", "false").lower() == "true",
             exa_enabled=os.getenv("EXA_ENABLED", "false").lower() == "true",
+            cn_stock_adjustment_type=os.getenv("CN_STOCK_ADJUSTMENT_TYPE", "qfq").strip().lower() or "qfq",
+            price_source_priority=tuple(
+                item.strip()
+                for item in os.getenv(
+                    "PRICE_SOURCE_PRIORITY",
+                    "local_prices,akshare,exchange,fixture_price,test",
+                ).split(",")
+                if item.strip()
+            ),
         )
 
     @property

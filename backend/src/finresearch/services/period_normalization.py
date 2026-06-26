@@ -165,6 +165,35 @@ class PeriodNormalizationService:
         selected = tuple(by_key[key] for key in needed)
         return sum(quarter.values[metric_code] for quarter in selected), selected, None
 
+    def select_common_ttm_window(
+        self,
+        quarters: tuple[NormalizedQuarter, ...],
+        required_metric_codes: tuple[str, ...],
+        *,
+        as_of_period_end: str | None = None,
+    ) -> tuple[tuple[NormalizedQuarter, ...], str | None]:
+        if not required_metric_codes:
+            return tuple(), "missing_required_metric_codes"
+        eligible = [quarter for quarter in quarters if as_of_period_end is None or quarter.period_end <= as_of_period_end]
+        by_key = {quarter.key: quarter for quarter in eligible}
+        for end_key in sorted(by_key, reverse=True):
+            needed: list[QuarterKey] = [end_key]
+            for _ in range(3):
+                needed.append(needed[-1].previous())
+            needed = list(reversed(needed))
+            if any(key not in by_key for key in needed):
+                continue
+            selected = tuple(by_key[key] for key in needed)
+            if all(all(code in quarter.values for code in required_metric_codes) for quarter in selected):
+                return selected, None
+        any_metric_present = any(
+            any(code in quarter.values for quarter in eligible)
+            for code in required_metric_codes
+        )
+        if any_metric_present:
+            return tuple(), "misaligned_ttm_components"
+        return tuple(), "insufficient_common_ttm_window"
+
     def yoy(
         self,
         periods: tuple[FinancialPeriod, ...],

@@ -84,20 +84,20 @@ class PriceRepository:
             rows = session.scalars(
                 statement.order_by(Price.trade_date.asc()).limit(limit)
             ).all()
-        points: list[PricePoint] = []
-        for row in rows:
-            if row.close is None:
-                continue
-            points.append(
-                PricePoint(
-                    id=row.id,
-                    symbol=row.symbol,
-                    trade_date=row.trade_date,
-                    close=float(row.close),
-                    adjustment_type=row.adjustment_type,
-                    data_source=row.data_source,
+            points: list[PricePoint] = []
+            for row in rows:
+                if row.close is None:
+                    continue
+                points.append(
+                    PricePoint(
+                        id=row.id,
+                        symbol=row.symbol,
+                        trade_date=row.trade_date,
+                        close=float(row.close),
+                        adjustment_type=row.adjustment_type,
+                        data_source=row.data_source,
+                    )
                 )
-            )
         return points
 
 

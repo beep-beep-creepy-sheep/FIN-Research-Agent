@@ -1,10 +1,30 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import sqrt
 from statistics import fmean, stdev
 
 from finresearch.metrics.context import MetricResult, PricePoint
+from finresearch.settings import get_settings
+
+
+PRICE_METRIC_CODES = (
+    "return_1d",
+    "return_5d",
+    "return_20d",
+    "return_60d",
+    "return_ytd",
+    "annualized_volatility",
+    "downside_volatility",
+    "maximum_drawdown",
+    "beta",
+    "alpha",
+    "r_squared",
+    "tracking_error",
+    "information_ratio",
+    "sharpe_ratio",
+    "sortino_ratio",
+)
 
 
 @dataclass(frozen=True)
@@ -14,6 +34,93 @@ class DrawdownDetail:
     trough_date: str | None
     recovery_date: str | None
     duration: int
+
+
+@dataclass(frozen=True)
+class CanonicalPriceSeries:
+    prices: tuple[PricePoint, ...]
+    adjustment_type: str | None
+    data_source: str | None
+    selected_source_reason: str
+    missing_reason: str | None = None
+
+    @property
+    def observations_count(self) -> int:
+        return len(self.prices)
+
+
+def select_canonical_price_series(
+    price_series: tuple[PricePoint, ...],
+    *,
+    symbol: str,
+    adjustment_type: str | None = None,
+    source_priority: tuple[str, ...] | None = None,
+) -> CanonicalPriceSeries:
+    if not price_series:
+        return CanonicalPriceSeries(tuple(), adjustment_type, None, "no_price_observations", "missing_price_series")
+    symbols = {point.symbol for point in price_series}
+    if symbols != {symbol}:
+        return CanonicalPriceSeries(tuple(), adjustment_type, None, "symbol_mismatch", "ambiguous_price_series")
+    if any(point.close <= 0 for point in price_series):
+        return CanonicalPriceSeries(tuple(), adjustment_type, None, "non_positive_close", "ambiguous_price_series")
+
+    configured_adjustment = adjustment_type or get_settings().cn_stock_adjustment_type
+    adjustment_candidates = tuple(point for point in price_series if point.adjustment_type == configured_adjustment)
+    if not adjustment_candidates:
+        return CanonicalPriceSeries(
+            tuple(),
+            configured_adjustment,
+            None,
+            f"configured_adjustment_type_not_found:{configured_adjustment}",
+            "ambiguous_price_series",
+        )
+
+    priority = source_priority or get_settings().price_source_priority
+    sources = {point.data_source for point in adjustment_candidates}
+    selected_source = next((source for source in priority if source in sources), None)
+    reason = "source_priority"
+    if selected_source is None:
+        if len(sources) != 1:
+            return CanonicalPriceSeries(
+                tuple(),
+                configured_adjustment,
+                None,
+                "source_priority_no_match",
+                "ambiguous_price_series",
+            )
+        selected_source = next(iter(sources))
+        reason = "single_available_source"
+
+    selected = tuple(point for point in adjustment_candidates if point.data_source == selected_source)
+    validation_reason = validate_price_series(selected)
+    if validation_reason is not None:
+        return CanonicalPriceSeries(tuple(), configured_adjustment, selected_source, validation_reason, "ambiguous_price_series")
+    return CanonicalPriceSeries(
+        tuple(sorted(selected, key=lambda point: point.trade_date)),
+        configured_adjustment,
+        selected_source,
+        f"{reason}:{selected_source};adjustment_type:{configured_adjustment}",
+    )
+
+
+def validate_price_series(prices: tuple[PricePoint, ...]) -> str | None:
+    if not prices:
+        return "missing_price_series"
+    if len({point.symbol for point in prices}) != 1:
+        return "symbol_mismatch"
+    if len({point.adjustment_type for point in prices}) != 1:
+        return "mixed_adjustment_type"
+    if len({point.data_source for point in prices}) != 1:
+        return "mixed_data_source"
+    ordered = tuple(sorted(prices, key=lambda point: point.trade_date))
+    dates = [point.trade_date for point in ordered]
+    if len(dates) != len(set(dates)):
+        return "duplicate_trade_date"
+    if dates != sorted(dates):
+        return "trade_date_not_increasing"
+    if any(point.close <= 0 for point in ordered):
+        return "non_positive_close"
+    return None
 
 
 class PriceAnalyticsService:
@@ -28,6 +135,9 @@ class PriceAnalyticsService:
         minimum_observations: int = 20,
     ) -> list[MetricResult]:
         prices = tuple(sorted(price_series, key=lambda point: point.trade_date))
+        validation_reason = validate_price_series(prices)
+        if validation_reason is not None:
+            return _missing_price_metrics(validation_reason, prices)
         returns = _returns(prices)
         results = [
             self._period_return("return_1d", prices, 1),
@@ -51,7 +161,7 @@ class PriceAnalyticsService:
                 self._information_ratio(aligned, benchmark_code, trading_days_per_year, minimum_observations),
             ]
         )
-        return results
+        return [_with_price_metadata(result, prices) for result in results]
 
     def _period_return(self, code: str, prices: tuple[PricePoint, ...], days: int) -> MetricResult:
         if len(prices) <= days:
@@ -372,6 +482,11 @@ def _price_result(
         end_date=prices[-1].trade_date if prices else None,
         observations_count=observations,
         adjustment_type=prices[-1].adjustment_type if prices else None,
+        selected_source_reason=(
+            f"canonical_price_series:{prices[-1].data_source}:{prices[-1].adjustment_type}"
+            if prices
+            else None
+        ),
         assumptions={},
     )
 
@@ -435,6 +550,8 @@ def _missing_price(
         missing_reason=reason,
         source_price_ids=tuple(point.id for point in prices if point.id is not None),
         observations_count=observations,
+        adjustment_type=prices[-1].adjustment_type if prices else None,
+        price_source=prices[-1].data_source if prices else None,
     )
 
 
@@ -451,4 +568,26 @@ def _missing_benchmark(
         missing_reason=reason,
         benchmark_code=benchmark_code,
         observations_count=observations,
+    )
+
+
+def _missing_price_metrics(reason: str, prices: tuple[PricePoint, ...]) -> list[MetricResult]:
+    return [
+        _with_price_metadata(_missing_price(code, reason, prices, observations=len(prices)), prices)
+        for code in PRICE_METRIC_CODES
+    ]
+
+
+def _with_price_metadata(result: MetricResult, prices: tuple[PricePoint, ...]) -> MetricResult:
+    if not prices:
+        return result
+    return replace(
+        result,
+        price_source=result.price_source or prices[-1].data_source,
+        source_price_ids=result.source_price_ids
+        or tuple(point.id for point in prices if point.id is not None),
+        adjustment_type=result.adjustment_type or prices[-1].adjustment_type,
+        selected_source_reason=result.selected_source_reason
+        or f"canonical_price_series:{prices[-1].data_source}:{prices[-1].adjustment_type}",
+        observations_count=result.observations_count if result.observations_count is not None else len(prices),
     )

@@ -43,6 +43,14 @@ TTM uses exactly four contiguous comparable normalized quarters. If Q2 or Q3 is 
 
 The service does not add annual revenue and Q4 together, and it does not treat half-year or nine-month cumulative values as single quarters.
 
+Composite TTM metrics use `select_common_ttm_window(quarters, required_metric_codes, as_of_period_end)`. The selected window must contain the exact same four contiguous `QuarterKey` values for every required component:
+
+- FCF TTM requires `operating_cash_flow` and `capital_expenditure`.
+- EBITDA TTM uses direct `ebitda` when a common direct window exists; otherwise it requires `ebit`, `depreciation`, and `amortization` in the same window.
+- ROIC first tries to align `ebit`, `income_tax`, and `profit_before_tax` in the same window. If tax components are unavailable or misaligned but EBIT has a valid four-quarter window, ROIC uses the EBIT window and records a tax-rate assumption warning instead of mixing tax periods.
+
+When no shared four-quarter window exists, composite metrics return `insufficient_common_ttm_window` or `misaligned_ttm_components`. Result `input_values` include `selected_quarters`, `period_start`, and `period_end`; PE TTM and FCF Yield inherit the selected window from their underlying TTM metric.
+
 ## YoY
 
 YoY compares comparable periods:
@@ -63,4 +71,4 @@ Coverage lives in:
 - `backend/tests/test_period_normalization.py`
 - `backend/tests/test_professional_metrics.py`
 
-The tests cover cumulative conversion, contiguous TTM, missing quarters, annual comparable YoY, currency conflict, restatement precedence, source IDs, and future price exclusion.
+The tests cover cumulative conversion, contiguous TTM, common component windows, latest-quarter component gaps, older common windows, missing common windows, strict as_of common windows, annual comparable YoY, currency conflict, restatement precedence, source IDs, and future price exclusion.

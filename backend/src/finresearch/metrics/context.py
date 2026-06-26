@@ -111,6 +111,7 @@ class MetricResult:
     end_date: str | None = None
     observations_count: int | None = None
     adjustment_type: str | None = None
+    selected_source_reason: str | None = None
     assumptions: dict[str, object] = field(default_factory=dict)
     quality_status: str = "calculated"
     warnings: tuple[str, ...] = ()

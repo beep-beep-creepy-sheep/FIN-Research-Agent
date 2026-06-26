@@ -32,6 +32,41 @@ def _period(
     )
 
 
+def _single_quarter(
+    period_end: str,
+    values: dict[str, float],
+    *,
+    fact_id_start: int,
+) -> FinancialPeriod:
+    quarter_start = {
+        "03-31": "01-01",
+        "06-30": "04-01",
+        "09-30": "07-01",
+        "12-31": "10-01",
+    }[period_end[5:]]
+    return FinancialPeriod(
+        symbol="000001",
+        period_start=f"{period_end[:4]}-{quarter_start}",
+        period_end=period_end,
+        publication_date=f"{period_end[:4]}-05-01",
+        report_type="quarterly",
+        statement_type="consolidated",
+        statement_scope="consolidated",
+        is_consolidated=True,
+        currency="CNY",
+        unit="CNY",
+        data_source="fixture",
+        quality_status="verified",
+        version=1,
+        values=values,
+        fact_ids_by_metric={code: (fact_id_start + index,) for index, code in enumerate(values)},
+        source_urls_by_metric={code: (f"https://issuer.example/{period_end}/{code}",) for code in values},
+        source_pages_by_metric={code: (1,) for code in values},
+        flow_basis="single_quarter",
+        is_cumulative=False,
+    )
+
+
 def _context(*, industry: str | None = None, negative_profit: bool = False) -> CalculationContext:
     cumulative = [
         ("2025-03-31", 100.0, 20.0, 25.0, 30.0, -10.0),
@@ -123,3 +158,129 @@ def test_professional_engine_does_not_use_future_prices_for_market_cap() -> None
 
     assert by_code["pe_ttm"].value == 2.0
     assert by_code["pe_ttm"].source_price_ids == (2,)
+
+
+def test_fcf_ttm_uses_normal_common_window() -> None:
+    periods = tuple(
+        _single_quarter(
+            period_end,
+            {"operating_cash_flow": 10.0, "capital_expenditure": -2.0},
+            fact_id_start=index * 10,
+        )
+        for index, period_end in enumerate(
+            ["2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"],
+            start=1,
+        )
+    )
+
+    by_code = _results(CalculationContext(financial_periods=periods, currency="CNY"))
+
+    assert by_code["fcf_ttm"].value == 32.0
+    assert by_code["fcf_ttm"].input_values["selected_quarters"] == [
+        "2025-03-31",
+        "2025-06-30",
+        "2025-09-30",
+        "2025-12-31",
+    ]
+
+
+def test_common_ttm_window_skips_latest_when_component_missing() -> None:
+    periods = tuple(
+        _single_quarter(
+            period_end,
+            {"operating_cash_flow": 10.0, **({} if period_end == "2025-12-31" else {"capital_expenditure": -2.0})},
+            fact_id_start=index * 10,
+        )
+        for index, period_end in enumerate(
+            ["2024-12-31", "2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"],
+            start=1,
+        )
+    )
+
+    by_code = _results(CalculationContext(financial_periods=periods, currency="CNY"))
+
+    assert by_code["fcf_ttm"].value == 32.0
+    assert by_code["fcf_ttm"].input_values["selected_quarters"] == [
+        "2024-12-31",
+        "2025-03-31",
+        "2025-06-30",
+        "2025-09-30",
+    ]
+
+
+def test_common_ttm_window_reports_missing_when_no_common_four_quarters() -> None:
+    periods = (
+        _single_quarter("2025-03-31", {"operating_cash_flow": 10.0}, fact_id_start=10),
+        _single_quarter("2025-06-30", {"capital_expenditure": -2.0}, fact_id_start=20),
+        _single_quarter("2025-09-30", {"operating_cash_flow": 10.0}, fact_id_start=30),
+        _single_quarter("2025-12-31", {"capital_expenditure": -2.0}, fact_id_start=40),
+    )
+
+    by_code = _results(CalculationContext(financial_periods=periods, currency="CNY"))
+
+    assert by_code["fcf_ttm"].value is None
+    assert by_code["fcf_ttm"].missing_reason == "misaligned_ttm_components"
+
+
+def test_ebitda_ttm_uses_common_component_window() -> None:
+    periods = tuple(
+        _single_quarter(
+            period_end,
+            {"ebit": 10.0, "depreciation": 2.0, "amortization": 1.0},
+            fact_id_start=index * 10,
+        )
+        for index, period_end in enumerate(
+            ["2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"],
+            start=1,
+        )
+    )
+
+    by_code = _results(CalculationContext(financial_periods=periods, currency="CNY"))
+
+    assert by_code["ebitda_ttm"].value == 52.0
+    assert by_code["ebitda_ttm"].input_values["selected_quarters"][-1] == "2025-12-31"
+
+
+def test_roic_uses_common_tax_window_when_available() -> None:
+    context = _context()
+
+    by_code = _results(context)
+
+    assert by_code["roic"].value is not None
+    assert by_code["roic"].input_values["selected_quarters"] == [
+        "2025-03-31",
+        "2025-06-30",
+        "2025-09-30",
+        "2025-12-31",
+    ]
+
+
+def test_common_ttm_window_after_cumulative_quarter_conversion() -> None:
+    by_code = _results(_context())
+
+    assert by_code["fcf_ttm"].value == 80.0
+    assert by_code["fcf_ttm"].input_values["selected_quarters"] == [
+        "2025-03-31",
+        "2025-06-30",
+        "2025-09-30",
+        "2025-12-31",
+    ]
+
+
+def test_strict_as_of_common_window_uses_available_periods() -> None:
+    context = _context()
+    strict_context = CalculationContext(
+        financial_periods=context.financial_periods[:-1],
+        price_series=context.price_series,
+        as_of_date="2025-10-01",
+        strict_as_of=True,
+        currency="CNY",
+    )
+
+    by_code = _results(strict_context)
+
+    assert by_code["fcf_ttm"].value is None
+    assert by_code["fcf_ttm"].missing_reason in {
+        "insufficient_common_ttm_window",
+        "misaligned_ttm_components",
+    }

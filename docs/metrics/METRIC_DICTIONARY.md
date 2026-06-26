@@ -4,18 +4,23 @@ Updated: 2026-06-26
 
 ## Status Counts
 
-- implemented: 66
+- registered definitions: 66
+- executable handler coverage: 66 unique metric codes
+- API exposed metric results: 66
+- implemented definitions with executable handlers: 66
 - partial: 0
 - defined_only: 0
 - not_available: 0
 
 `implemented` means the repository has a deterministic formula, typed input contract, missing-data behavior, lineage fields, and regression tests. A company can still return `value: null` when its local facts or prices are insufficient; that is an observation-level missing state, not a definition-level implementation gap.
 
+The three counts are intentionally separate. The registry count is the number of `MetricDefinition` records. The executable handler count is the number of definitions covered by a professional engine handler, a legacy deterministic formula, or a price analytics handler. The API exposed count is the number of `MetricResult` rows returned by `/v1/companies/{symbol}/metrics`; tests require exactly one API row per registered definition and no duplicate codes.
+
 ## Implemented Metrics
 
 ### Legacy Financial Matrix Metrics
 
-These remain available for existing company summary, screener, and research flows. They use the compatible financial matrix path and return null with `missing_reason` on missing inputs or zero denominators.
+These remain available for existing company summary, screener, research flows, and as fallback handlers in `MetricCalculationService`. They use the compatible financial matrix path and return null with `missing_reason` on missing inputs or zero denominators. When a professional handler and a legacy formula share a code, the professional result wins in the API.
 
 | Metric | Formula | Inputs | Period Rule | Missing Behavior | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -42,19 +47,19 @@ These remain available for existing company summary, screener, and research flow
 | --- | --- | --- | --- | --- | --- | --- |
 | revenue_ttm | sum revenue from four contiguous comparable quarters | revenue | normalized single-quarter TTM | four quarter fact IDs and source URLs | insufficient_contiguous_quarters | `backend/tests/test_period_normalization.py`, `backend/tests/test_professional_metrics.py` |
 | net_profit_ttm | sum net_profit_parent from four contiguous comparable quarters | net_profit_parent, net_profit fallback | normalized single-quarter TTM | four quarter fact IDs and source URLs | insufficient_contiguous_quarters | `backend/tests/test_professional_metrics.py` |
-| fcf_ttm | TTM operating cash flow - standardized TTM capex outflow | operating_cash_flow, capital_expenditure | normalized single-quarter TTM | OCF and capex fact IDs | missing_input | `backend/tests/test_professional_metrics.py` |
+| fcf_ttm | TTM operating cash flow - standardized TTM capex outflow | operating_cash_flow, capital_expenditure | same four-quarter common window | OCF and capex fact IDs; selected_quarters | insufficient_common_ttm_window or misaligned_ttm_components | `backend/tests/test_professional_metrics.py` |
 | fcf_yield | FCF TTM / equity market capitalization | FCF TTM, market_cap or close * shares | as_of latest eligible price | financial fact IDs plus price IDs | missing_market_cap, zero_denominator | `backend/tests/test_professional_metrics.py` |
-| ebitda_ttm | direct EBITDA TTM or EBIT TTM + depreciation TTM + amortization TTM | ebitda or ebit/depreciation/amortization | normalized single-quarter TTM | component fact IDs | missing_ebit_depreciation_or_amortization | `backend/tests/test_professional_metrics.py` |
+| ebitda_ttm | direct EBITDA TTM or EBIT TTM + depreciation TTM + amortization TTM | ebitda or ebit/depreciation/amortization | direct EBITDA common window, or same four-quarter component common window | component fact IDs; selected_quarters | insufficient_common_ttm_window or misaligned_ttm_components | `backend/tests/test_professional_metrics.py` |
 | net_debt | interest-bearing debt - cash and equivalents | interest_bearing_debt, cash_and_equivalents | latest financial period | debt/cash fact IDs | missing_debt_or_cash | `backend/tests/test_professional_metrics.py` |
 | net_debt_to_ebitda | net_debt / EBITDA TTM | net_debt, EBITDA TTM | latest debt, TTM EBITDA | combined lineage | not_applicable_non_positive_ebitda | `backend/tests/test_professional_metrics.py` |
 | enterprise_value | market cap + debt + preferred equity + NCI - cash | market cap, debt, optional preferred/NCI, cash | latest financial period and as_of price | fact IDs and price IDs | optional fields warn and mark basic_ev | `backend/tests/test_professional_metrics.py` |
 | ev_to_ebitda | enterprise value / EBITDA TTM | EV, EBITDA TTM | latest EV, TTM EBITDA | combined lineage | not_applicable_industry, non-positive EBITDA | `backend/tests/test_professional_metrics.py` |
-| pe_ttm | market cap / net_profit_parent TTM | market cap, net profit TTM | latest as_of market cap and TTM earnings | fact IDs and price IDs | not_applicable_negative_earnings | `backend/tests/test_professional_metrics.py` |
-| roic | EBIT TTM * (1 - normalized tax rate) / average invested capital | EBIT, tax/PBT, debt, equity, NCI, excess_cash | TTM numerator, begin/end average capital | fact IDs for numerator and capital periods | not_applicable_industry, missing_average_invested_capital | `backend/tests/test_professional_metrics.py` |
+| pe_ttm | market cap / net_profit_parent TTM | market cap, net profit TTM | latest as_of market cap and inherited net profit TTM window | fact IDs and price IDs; selected_quarters | not_applicable_negative_earnings | `backend/tests/test_professional_metrics.py` |
+| roic | EBIT TTM * (1 - normalized tax rate) / average invested capital | EBIT, tax/PBT, debt, equity, NCI, excess_cash | common EBIT/tax/PBT TTM window where available, begin/end average capital | fact IDs for numerator and capital periods; selected_quarters | not_applicable_industry, missing_average_invested_capital; misaligned tax components warn and use normalized assumption | `backend/tests/test_professional_metrics.py` |
 
 ### Price Analytics
 
-All price analytics use adjusted-close return series with a recorded `adjustment_type`, `price_source`, sample window, observation count, and assumptions.
+All price analytics use a canonical adjusted-close return series with one symbol, one configured `adjustment_type`, one selected `data_source`, unique increasing trade dates, positive closes, a sample window, observation count, selected source reason, and assumptions.
 
 | Metric | Formula | Inputs | Period Rule | Missing Behavior | Tests |
 | --- | --- | --- | --- | --- | --- |

@@ -1,6 +1,15 @@
 from pytest import approx
 
 from finresearch.metrics import calculate_registered_metrics, get_metric_definition, list_metric_definitions
+from finresearch.metrics.context import CalculationContext, FinancialPeriod
+from finresearch.services.metric_calculation import (
+    API_EXPOSED_METRIC_COUNT,
+    EXECUTABLE_HANDLER_CODES,
+    EXECUTABLE_HANDLER_COUNT,
+    IMPLEMENTED_METRIC_COUNT,
+    MetricCalculationService,
+    REGISTERED_DEFINITION_COUNT,
+)
 from finresearch.services.metric_calculator import calculate_metric_signals
 
 
@@ -130,3 +139,63 @@ def test_legacy_metric_calculator_keeps_compatible_keys() -> None:
     assert result["metrics"]["liability_ratio"] == 0.4
     assert result["metrics"]["roe_proxy"] == 0.2
     assert result["quality_flags"] == ["operating_cash_flow_below_net_profit"]
+
+
+def test_unified_metric_service_exposes_every_registered_definition_once() -> None:
+    definitions = list_metric_definitions()
+    results = MetricCalculationService().calculate(CalculationContext(), symbol="000001")
+    codes = [result.code for result in results]
+
+    assert REGISTERED_DEFINITION_COUNT == len(definitions)
+    assert EXECUTABLE_HANDLER_COUNT == len(EXECUTABLE_HANDLER_CODES)
+    assert API_EXPOSED_METRIC_COUNT == len(definitions)
+    assert len(codes) == len(definitions)
+    assert len(codes) == len(set(codes))
+    assert set(codes) == {definition.code for definition in definitions}
+    assert all(
+        definition.code in EXECUTABLE_HANDLER_CODES
+        for definition in definitions
+        if definition.implementation_status == "implemented"
+    )
+    assert IMPLEMENTED_METRIC_COUNT >= 35
+
+
+def test_unified_metric_service_prefers_professional_results_over_legacy() -> None:
+    period = FinancialPeriod(
+        symbol="000001",
+        period_start="2025-01-01",
+        period_end="2025-12-31",
+        publication_date="2026-04-01",
+        report_type="annual",
+        statement_type="profit_sheet",
+        statement_scope="consolidated",
+        is_consolidated=True,
+        currency="CNY",
+        unit="CNY",
+        data_source="fixture",
+        quality_status="verified",
+        version=1,
+        fact_ids_by_metric={"net_profit_parent": (1,), "cash_and_equivalents": (2,), "interest_bearing_debt": (3,)},
+        source_urls_by_metric={},
+        source_pages_by_metric={},
+        values={
+            "revenue": 100.0,
+            "gross_profit": 40.0,
+            "net_profit_parent": 10.0,
+            "cash_and_equivalents": 3.0,
+            "interest_bearing_debt": 8.0,
+        },
+    )
+
+    by_code = {
+        result.code: result
+        for result in MetricCalculationService().calculate(
+            CalculationContext(financial_periods=(period,), currency="CNY"),
+            symbol="000001",
+        )
+    }
+
+    assert by_code["net_debt"].value == 5.0
+    assert by_code["net_debt"].formula_version == "2.0.0"
+    assert by_code["gross_margin"].value == 0.4
+    assert by_code["gross_margin"].formula_version == "1.0.0"
