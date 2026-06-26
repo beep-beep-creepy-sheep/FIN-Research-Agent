@@ -34,6 +34,9 @@ class MetricDefinitionRepository:
                 row.unit = definition.unit
                 row.periodicity = definition.periodicity
                 row.source_requirement = definition.source_requirement
+                row.applicable_industries = list(definition.applicable_industries)
+                row.caveats = definition.caveats
+                row.calculation_version = definition.calculation_version
                 row.missing_behavior = definition.missing_behavior
         return len(definitions)
 
@@ -51,6 +54,9 @@ class MetricDefinitionRepository:
                     "unit": row.unit,
                     "periodicity": row.periodicity,
                     "source_requirement": row.source_requirement,
+                    "applicable_industries": row.applicable_industries,
+                    "caveats": row.caveats,
+                    "calculation_version": row.calculation_version,
                     "missing_behavior": row.missing_behavior,
                 }
                 for row in rows
@@ -74,6 +80,13 @@ class MarketRepository:
         data_quality: dict[str, object],
         source_count: int,
         data_source: str = "local_database",
+        observed_at: str | None = None,
+        fetched_at: str | None = None,
+        trading_date: str | None = None,
+        currency: str | None = None,
+        unit: str | None = None,
+        quality_status: str | None = None,
+        is_stale: bool = False,
     ) -> dict[str, object]:
         with session_scope() as session:
             row = session.scalar(
@@ -91,6 +104,13 @@ class MarketRepository:
                 )
                 session.add(row)
             row.as_of = as_of
+            row.observed_at = observed_at or as_of
+            row.fetched_at = fetched_at or as_of
+            row.trading_date = trading_date or snapshot_date
+            row.currency = currency
+            row.unit = unit
+            row.quality_status = quality_status or status
+            row.is_stale = is_stale
             row.status = status
             row.headline = headline
             row.summary = summary
@@ -315,6 +335,13 @@ def _snapshot_dict(row: MarketSnapshot) -> dict[str, object]:
         "market": row.market,
         "snapshot_date": row.snapshot_date,
         "as_of": row.as_of,
+        "observed_at": row.observed_at,
+        "fetched_at": row.fetched_at,
+        "trading_date": row.trading_date,
+        "currency": row.currency,
+        "unit": row.unit,
+        "quality_status": row.quality_status,
+        "is_stale": row.is_stale,
         "status": row.status,
         "headline": row.headline,
         "summary": row.summary,

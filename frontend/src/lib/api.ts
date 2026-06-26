@@ -1,5 +1,12 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+export const API_ROUTES = {
+  companyCharts: (symbol: string) => `/v1/companies/${symbol}/charts`,
+  companyChartAlias: (symbol: string) => `/v1/companies/${symbol}/chart`,
+  screenerQuery: "/v1/screener/query",
+  screensQueryAlias: "/v1/screens/query",
+} as const;
+
 export type CompanySummary = {
   symbol: string;
   company?: Record<string, unknown> | null;
@@ -17,6 +24,12 @@ export type MarketChart = {
   kind: "pie" | "bar" | "histogram" | "line" | "candlestick";
   unit: string;
   as_of?: string | null;
+  frequency?: string | null;
+  currency?: string | null;
+  updated_at?: string | null;
+  quality_status?: string | null;
+  warnings?: string[];
+  error?: string | null;
   source: string;
   empty: boolean;
   note?: string;
@@ -67,7 +80,7 @@ export function getCompanySummary(symbol: string): Promise<CompanySummary> {
 }
 
 export function getCompanyCharts(symbol: string): Promise<MarketChart[]> {
-  return fetchJson<MarketChart[]>(`/v1/companies/${symbol}/charts`);
+  return fetchJson<MarketChart[]>(API_ROUTES.companyCharts(symbol));
 }
 
 export function createSyncJob(symbol: string, years = 5): Promise<Record<string, unknown>> {
@@ -108,7 +121,7 @@ export function createMarketSnapshotJob(market = "CN"): Promise<Record<string, u
 }
 
 export function queryScreener(filters: Record<string, unknown>): Promise<Record<string, unknown>> {
-  return fetchJson<Record<string, unknown>>("/v1/screener/query", {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.screenerQuery, {
     method: "POST",
     body: JSON.stringify(filters),
   });

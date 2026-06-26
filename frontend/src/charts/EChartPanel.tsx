@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import * as echarts from "echarts";
 import type { MarketChart } from "@/lib/api";
 
 export function EChartPanel({ chart }: { chart: MarketChart }) {
@@ -10,13 +9,19 @@ export function EChartPanel({ chart }: { chart: MarketChart }) {
 
   useEffect(() => {
     if (!elementRef.current || chart.empty) return;
-    const instance = echarts.init(elementRef.current);
-    instance.setOption(option);
-    const resize = () => instance.resize();
-    window.addEventListener("resize", resize);
+    let instance: { setOption: (value: EChartOption) => void; resize: () => void; dispose: () => void } | null = null;
+    let active = true;
+    const resize = () => instance?.resize();
+    import("echarts").then((echarts) => {
+      if (!active || !elementRef.current) return;
+      instance = echarts.init(elementRef.current);
+      instance.setOption(option);
+      window.addEventListener("resize", resize);
+    });
     return () => {
+      active = false;
       window.removeEventListener("resize", resize);
-      instance.dispose();
+      instance?.dispose();
     };
   }, [chart.empty, option]);
 
@@ -26,7 +31,8 @@ export function EChartPanel({ chart }: { chart: MarketChart }) {
         <div>
           <h2 className="text-sm font-semibold text-slate-900">{chart.title}</h2>
           <p className="mt-1 text-xs text-slate-500">
-            {formatAsOf(chart.as_of)} · 单位：{chart.unit} · {chart.source}
+            {formatAsOf(chart.as_of)} · 频率：{chart.frequency ?? "未标注"} · 单位：{chart.unit}
+            {chart.currency ? ` · 币种：${chart.currency}` : ""} · {chart.source}
           </p>
         </div>
         <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">{chart.kind}</span>
@@ -39,11 +45,16 @@ export function EChartPanel({ chart }: { chart: MarketChart }) {
         <div ref={elementRef} className="h-64 w-full" />
       )}
       {chart.note ? <p className="mt-3 text-xs leading-5 text-slate-500">{chart.note}</p> : null}
+      {chart.warnings?.length ? (
+        <p className="mt-2 text-xs leading-5 text-amber-700">提示：{chart.warnings.join("、")}</p>
+      ) : null}
     </div>
   );
 }
 
-function buildOption(chart: MarketChart): echarts.EChartsOption {
+type EChartOption = Record<string, unknown>;
+
+function buildOption(chart: MarketChart): EChartOption {
   const names = chart.data.map((item) => item.name);
   const values = chart.data.map((item) => numberValue(item.value));
   if (chart.kind === "pie") {

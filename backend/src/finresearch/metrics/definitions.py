@@ -15,6 +15,9 @@ class MetricDefinition:
     unit: str
     periodicity: str
     source_requirement: str
+    applicable_industries: tuple[str, ...] = ("all",)
+    caveats: str = ""
+    calculation_version: str = "1.0.0"
     missing_behavior: str = "mark_missing"
 
 
@@ -23,9 +26,13 @@ class MetricObservation:
     code: str
     value: float | None
     period_end: str | None
+    as_of: str | None
     unit: str
     formula: str
+    formula_version: str
     inputs: tuple[str, ...]
+    source_fact_ids: tuple[int, ...] = ()
+    warnings: tuple[str, ...] = ()
     missing_reason: str | None = None
     quality_status: str = "calculated"
 
@@ -58,8 +65,10 @@ def calculate_registered_metrics(matrix: list[dict[str, object]]) -> list[Metric
                 code=definition.code,
                 value=value,
                 period_end=_period(latest),
+                as_of=_period(latest),
                 unit=definition.unit,
                 formula=definition.formula,
+                formula_version=definition.calculation_version,
                 inputs=definition.inputs,
                 missing_reason=reason,
                 quality_status="missing" if reason else "calculated",
@@ -105,6 +114,7 @@ def _definition(
         unit=unit,
         periodicity=periodicity,
         source_requirement=source_requirement,
+        caveats="Uses available structured fields only; returns null with a missing reason instead of imputing values.",
     )
 
 
@@ -378,8 +388,10 @@ def _missing_observation(definition: MetricDefinition, period: str | None, reaso
         code=definition.code,
         value=None,
         period_end=period,
+        as_of=period,
         unit=definition.unit,
         formula=definition.formula,
+        formula_version=definition.calculation_version,
         inputs=definition.inputs,
         missing_reason=reason,
         quality_status="missing",

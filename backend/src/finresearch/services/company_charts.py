@@ -24,7 +24,7 @@ class CompanyChartService:
 
 
 def _kline_chart(prices: list[dict[str, object]]) -> dict[str, object]:
-    return {
+    return _with_metadata({
         "id": "kline_volume",
         "title": "K线与成交量",
         "kind": "candlestick",
@@ -44,11 +44,11 @@ def _kline_chart(prices: list[dict[str, object]]) -> dict[str, object]:
             }
             for row in prices
         ],
-    }
+    }, frequency="daily", currency="CNY")
 
 
 def _financial_trend_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
-    return {
+    return _with_metadata({
         "id": "financial_trend",
         "title": "收入 / 净利润 / 经营现金流",
         "kind": "line",
@@ -71,7 +71,7 @@ def _financial_trend_chart(matrix: list[dict[str, object]]) -> dict[str, object]
             }
             for row in matrix
         ],
-    }
+    }, frequency="annual", currency="CNY")
 
 
 def _margin_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
@@ -86,7 +86,7 @@ def _margin_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
                 "net_margin": _ratio(row.get("net_profit_parent") or row.get("net_profit"), revenue),
             }
         )
-    return {
+    return _with_metadata({
         "id": "margin_trend",
         "title": "利润率趋势",
         "kind": "line",
@@ -101,7 +101,7 @@ def _margin_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
             {"name": "净利率", "field": "net_margin"},
         ],
         "data": rows,
-    }
+    }, frequency="annual")
 
 
 def _returns_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
@@ -115,7 +115,7 @@ def _returns_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
                 "roa": _ratio(net_profit, row.get("total_assets")),
             }
         )
-    return {
+    return _with_metadata({
         "id": "returns_trend",
         "title": "ROE / ROA",
         "kind": "line",
@@ -126,7 +126,7 @@ def _returns_chart(matrix: list[dict[str, object]]) -> dict[str, object]:
         "note": "ROE/ROA 使用最新期资产和权益近似计算，正式报告会展示公式口径。",
         "series": [{"name": "ROE", "field": "roe"}, {"name": "ROA", "field": "roa"}],
         "data": rows,
-    }
+    }, frequency="annual")
 
 
 def _valuation_band_chart(
@@ -141,7 +141,7 @@ def _valuation_band_chart(
         for row in prices:
             close = _number(row.get("close"))
             rows.append({"name": row["trade_date"], "pe": None if close is None or eps == 0 else close / eps})
-    return {
+    return _with_metadata({
         "id": "valuation_band",
         "title": "估值区间",
         "kind": "line",
@@ -152,7 +152,17 @@ def _valuation_band_chart(
         "note": "估值区间需要价格、股本和利润数据；缺任一项则拒绝生成。",
         "series": [{"name": "PE", "field": "pe"}],
         "data": rows,
-    }
+    }, frequency="daily")
+
+
+def _with_metadata(chart: dict[str, object], *, frequency: str, currency: str | None = None) -> dict[str, object]:
+    chart["frequency"] = frequency
+    chart["currency"] = currency
+    chart["updated_at"] = chart.get("as_of")
+    chart["quality_status"] = "empty" if chart.get("empty") else "ok"
+    chart["warnings"] = ["missing_source_data"] if chart.get("empty") else []
+    chart["error"] = None
+    return chart
 
 
 def _latest_period(matrix: list[dict[str, object]]) -> str | None:

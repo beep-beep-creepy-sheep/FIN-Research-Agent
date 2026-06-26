@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from finresearch.services.screener import ScreenQuery, ScreenerService
 
@@ -17,9 +17,14 @@ class ScreenerRequest(BaseModel):
     min_roe: float | None = None
     max_liability_ratio: float | None = None
     sort_by: str = "revenue"
-    limit: int = 50
+    sort_direction: str = "desc"
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=200)
 
 
 @router.post("/query")
 def query_screener(request: ScreenerRequest) -> dict[str, object]:
-    return ScreenerService().query(ScreenQuery(**request.model_dump()))
+    try:
+        return ScreenerService().query(ScreenQuery(**request.model_dump()))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

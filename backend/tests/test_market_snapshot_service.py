@@ -16,6 +16,9 @@ def test_market_snapshot_returns_insufficient_data_without_prices(monkeypatch, t
     result = MarketSnapshotService().generate("CN")
 
     assert result.snapshot["status"] == "insufficient_data"
+    assert result.snapshot["quality_status"] == "insufficient_data"
+    assert result.snapshot["currency"] == "CNY"
+    assert result.snapshot["is_stale"] is False
     assert result.snapshot["summary"]["universe_count"] == 0
     assert result.breadth is None
     assert result.warnings == ["missing_local_price_data"]

@@ -23,7 +23,7 @@ app = FastAPI(title="Fin Research Agent API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +39,7 @@ app.include_router(watchlists.router, prefix="/v1/watchlists", tags=["watchlists
 app.include_router(jobs.router, prefix="/v1/jobs", tags=["jobs"])
 app.include_router(market.router, prefix="/v1/market", tags=["market"])
 app.include_router(screener.router, prefix="/v1/screener", tags=["screener"])
+app.include_router(screener.router, prefix="/v1/screens", tags=["screens"])
 app.include_router(connectors.router, prefix="/v1/connectors", tags=["connectors"])
 app.include_router(external_sources.router, prefix="/v1/external-sources", tags=["external-sources"])
 

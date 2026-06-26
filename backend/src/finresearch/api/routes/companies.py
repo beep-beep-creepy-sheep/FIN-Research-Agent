@@ -47,3 +47,12 @@ def get_company_charts(
     db_path: Path = Depends(library_path),
 ) -> list[dict[str, object]]:
     return CompanyChartService(db_path).build(symbol, years=years)
+
+
+@router.get("/{symbol}/chart")
+def get_company_chart_alias(
+    symbol: str,
+    years: int = 10,
+    db_path: Path = Depends(library_path),
+) -> list[dict[str, object]]:
+    return CompanyChartService(db_path).build(symbol, years=years)

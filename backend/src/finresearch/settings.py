@@ -65,6 +65,12 @@ def get_settings() -> Settings:
     return settings
 
 
+def database_url_from_env() -> str:
+    load_local_env()
+    data_dir = Path(os.getenv("DATA_DIR", "data"))
+    return os.getenv("DATABASE_URL", f"sqlite:///{data_dir / 'finresearch.sqlite'}")
+
+
 def load_local_env() -> None:
     if "PYTEST_CURRENT_TEST" in os.environ:
         return

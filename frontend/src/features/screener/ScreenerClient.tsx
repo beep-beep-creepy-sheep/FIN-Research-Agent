@@ -30,7 +30,8 @@ export function ScreenerClient() {
       const result = await queryScreener(filters);
       const resultRows = Array.isArray(result.rows) ? result.rows : [];
       setRows(resultRows as Array<Record<string, unknown>>);
-      setMessage(`返回 ${String(result.count ?? resultRows.length)} 条，本地来源：financial_facts`);
+      const asOf = result.as_of ? `，截至 ${String(result.as_of)}` : "，当前无可用期间";
+      setMessage(`返回 ${String(result.count ?? resultRows.length)} 条，本地来源：financial_facts${asOf}`);
     } catch (error) {
       setRows([]);
       setMessage(error instanceof Error ? error.message : "查询失败");
@@ -95,7 +96,10 @@ export function ScreenerClient() {
             </tbody>
           </table>
         ) : (
-          <p className="p-4 text-sm text-slate-600">没有结果。请先同步公司财务数据，或放宽筛选条件。</p>
+          <div className="space-y-2 p-4 text-sm text-slate-600">
+            <p>没有结果。请先同步公司财务数据，或放宽筛选条件。</p>
+            <p>本地来源：financial_facts；空结果不会生成模拟公司或补全指标。</p>
+          </div>
         )}
       </div>
     </div>

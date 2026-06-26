@@ -12,6 +12,23 @@ def test_health_endpoint() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_cors_allows_localhost_and_loopback_frontends() -> None:
+    client = TestClient(app)
+
+    for origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+        response = client.options(
+            "/v1/screener/query",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == origin
+
+
 def test_create_job_endpoint(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
@@ -93,6 +110,20 @@ def test_company_charts_endpoint_empty_state(tmp_path, monkeypatch) -> None:
         "valuation_band",
     ]
     assert payload[0]["empty"] is True
+    assert payload[0]["frequency"] == "daily"
+    assert payload[0]["currency"] == "CNY"
+    assert payload[0]["quality_status"] == "empty"
+
+
+def test_company_chart_alias_endpoint(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    client = TestClient(app)
+
+    response = client.get("/v1/companies/600519/chart")
+
+    assert response.status_code == 200
+    assert response.json()[0]["id"] == "kline_volume"
 
 
 def test_screener_query_uses_local_financial_facts(tmp_path, monkeypatch) -> None:
@@ -104,6 +135,9 @@ def test_screener_query_uses_local_financial_facts(tmp_path, monkeypatch) -> Non
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
     CompanyRepository().upsert(
         CompanyRecord(symbol="600519", company_name="贵州茅台", exchange="SSE", industry="白酒")
+    )
+    CompanyRepository().upsert(
+        CompanyRecord(symbol="000001", company_name="平安银行", exchange="SZSE", industry="银行")
     )
     FinancialFactRepository().upsert_many(
         [
@@ -129,16 +163,57 @@ def test_screener_query_uses_local_financial_facts(tmp_path, monkeypatch) -> Non
                 data_source="fixture",
                 retrieved_at="2026-06-26T00:00:00+00:00",
             ),
+            FinancialFact(
+                symbol="000001",
+                metric_code="revenue",
+                metric_name="营业收入",
+                value=200.0,
+                period_end="2025-12-31",
+                report_type="annual",
+                statement_type="profit_sheet",
+                data_source="fixture",
+                retrieved_at="2026-06-26T00:00:00+00:00",
+            ),
+            FinancialFact(
+                symbol="000001",
+                metric_code="net_profit_parent",
+                metric_name="归母净利润",
+                value=10.0,
+                period_end="2025-12-31",
+                report_type="annual",
+                statement_type="profit_sheet",
+                data_source="fixture",
+                retrieved_at="2026-06-26T00:00:00+00:00",
+            ),
         ]
     )
     client = TestClient(app)
+
+    broad_response = client.post("/v1/screener/query", json={"min_net_margin": 0})
+    assert broad_response.status_code == 200
+    assert {row["symbol"] for row in broad_response.json()["rows"]} == {"000001", "600519"}
 
     response = client.post("/v1/screener/query", json={"min_net_margin": 0.2})
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["count"] == 1
+    assert payload["as_of"] == "2025-12-31"
     assert payload["rows"][0]["symbol"] == "600519"
+
+    alias_response = client.post("/v1/screens/query", json={"min_net_margin": 0.2})
+    assert alias_response.status_code == 200
+    assert alias_response.json()["rows"][0]["symbol"] == "600519"
+
+
+def test_screener_rejects_invalid_sort(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    client = TestClient(app)
+
+    response = client.post("/v1/screener/query", json={"sort_by": "not_a_metric"})
+
+    assert response.status_code == 400
 
 
 def test_research_with_exa_disabled_does_not_call_mcporter(tmp_path, monkeypatch) -> None:

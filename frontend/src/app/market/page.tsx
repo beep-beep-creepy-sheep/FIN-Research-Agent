@@ -30,6 +30,28 @@ export default async function MarketPage() {
         ))}
       </div>
 
+      <div className="mb-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <Card title="全局搜索">
+          <form action="/companies/600519" className="flex flex-wrap gap-2">
+            <input
+              name="q"
+              placeholder="输入代码或公司名"
+              className="min-w-0 flex-1 rounded-md border border-line px-3 py-2 text-sm"
+            />
+            <Link href="/screener" className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white">
+              打开筛选器
+            </Link>
+          </form>
+          <p className="mt-2 text-xs text-slate-500">搜索仅跳转到本地公司库；没有同步过的公司不会自动编造。</p>
+        </Card>
+        <Card title="更新时间">
+          <div className="space-y-2 text-sm text-slate-700">
+            <KeyValue label="快照" value={formatAsOf(snapshot.as_of ?? snapshot.fetched_at ?? snapshot.observed_at)} />
+            <KeyValue label="质量" value={String(snapshot.quality_status ?? snapshot.status ?? "no_snapshot")} />
+          </div>
+        </Card>
+      </div>
+
       <div className="grid gap-4 xl:grid-cols-3">
         {overview.charts.map((chart) => (
           <EChartPanel key={chart.id} chart={chart} />
@@ -78,6 +100,46 @@ export default async function MarketPage() {
           ) : (
             <Empty text="暂无板块快照；先同步公司行情或运行市场快照任务。" />
           )}
+        </Card>
+        <Card title="主要指数">
+          {overview.indices.length ? (
+            <div className="space-y-2">
+              {overview.indices.map((row) => (
+                <div key={String(row.index_code)} className="flex justify-between gap-3 rounded border border-line bg-slate-50 p-3 text-sm">
+                  <span className="font-medium text-slate-900">{String(row.index_name ?? row.index_code)}</span>
+                  <span>{formatNumber(row.close)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Empty text="暂无主要指数；等待 index_quotes 同步。" />
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-4">
+        <Card title="行业热力图">
+          <Empty text="等待板块成分行情同步后生成热力图；当前不渲染占位色块。" />
+        </Card>
+        <Card title="市场估值">
+          <Empty text="估值需要价格、股本和盈利口径；数据不足时不显示PE/PB结论。" />
+        </Card>
+        <Card title="事件">
+          <Empty text="尚未接入公告/财经日历快照；不会用新闻标题冒充事件日历。" />
+        </Card>
+        <Card title="自选股">
+          <Empty text="本地 watchlists 暂无展示项；添加后将按同一行情快照口径显示。" />
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <Card title="来源">
+          <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+            <KeyValue label="行情" value="security_quotes" />
+            <KeyValue label="指数" value="index_quotes" />
+            <KeyValue label="板块" value="sector_snapshots" />
+            <KeyValue label="广度" value="market_breadth_snapshots" />
+          </div>
         </Card>
         <Card title="数据质量">
           <div className="space-y-3 text-sm text-slate-700">
@@ -193,4 +255,9 @@ function formatMoney(value: unknown) {
   const number = numberValue(value);
   if (!number) return "0";
   return `${(number / 100000000).toLocaleString("zh-CN", { maximumFractionDigits: 2 })} 亿`;
+}
+
+function formatAsOf(value: unknown) {
+  if (!value) return "未生成";
+  return String(value);
 }

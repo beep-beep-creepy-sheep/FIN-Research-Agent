@@ -45,6 +45,13 @@ class MarketSnapshotService:
                 coverage={"security_quotes": 0, "sectors": 0, "source": "prices"},
                 data_quality={"warnings": warnings},
                 source_count=0,
+                observed_at=as_of,
+                fetched_at=as_of,
+                trading_date=snapshot_date,
+                currency="CNY" if market == "CN" else None,
+                unit="count",
+                quality_status="insufficient_data",
+                is_stale=False,
             )
             return MarketSnapshotResult(
                 snapshot=snapshot,
@@ -97,6 +104,13 @@ class MarketSnapshotService:
             },
             data_quality={"warnings": warnings, "publishable": False},
             source_count=len(latest_quotes),
+            observed_at=trade_date,
+            fetched_at=as_of,
+            trading_date=trade_date,
+            currency="CNY" if market == "CN" else None,
+            unit="count",
+            quality_status="draft",
+            is_stale=False,
         )
         return MarketSnapshotResult(
             snapshot=snapshot,

@@ -17,11 +17,17 @@ class ScreenQuery:
     min_roe: float | None = None
     max_liability_ratio: float | None = None
     sort_by: str = "revenue"
+    sort_direction: str = "desc"
+    offset: int = 0
     limit: int = 50
 
 
 class ScreenerService:
     def query(self, request: ScreenQuery) -> dict[str, object]:
+        if request.sort_by not in SORT_EXPRESSIONS:
+            raise ValueError(f"invalid_sort_by:{request.sort_by}")
+        if request.sort_direction not in {"asc", "desc"}:
+            raise ValueError(f"invalid_sort_direction:{request.sort_direction}")
         latest_period = (
             select(
                 FinancialFact.symbol.label("symbol"),
@@ -81,13 +87,21 @@ class ScreenerService:
             statement = statement.having(roe >= request.min_roe)
         if request.max_liability_ratio is not None:
             statement = statement.having(liability_ratio <= request.max_liability_ratio)
-        statement = statement.order_by(_sort_expr(request.sort_by).desc()).limit(max(1, min(request.limit, 200)))
+        sort_expr = _sort_expr(request.sort_by)
+        statement = statement.order_by(
+            sort_expr.asc() if request.sort_direction == "asc" else sort_expr.desc()
+        ).offset(max(0, request.offset)).limit(max(1, min(request.limit, 200)))
 
         with session_scope() as session:
             rows = [dict(row._mapping) for row in session.execute(statement).all()]
+        as_of_values = [row.get("period_end") for row in rows if row.get("period_end")]
         return {
             "rows": rows,
             "count": len(rows),
+            "offset": max(0, request.offset),
+            "limit": max(1, min(request.limit, 200)),
+            "as_of": max(as_of_values) if as_of_values else None,
+            "updated_at": max(as_of_values) if as_of_values else None,
             "filters": request.__dict__,
             "data_quality": {
                 "source": "financial_facts",
@@ -101,12 +115,15 @@ def _metric_expr(*codes: str):
 
 
 def _sort_expr(sort_by: str):
-    mapping = {
-        "revenue": _metric_expr("revenue"),
-        "net_profit": _metric_expr("net_profit", "net_profit_parent"),
-        "net_margin": _metric_expr("net_profit", "net_profit_parent") / func.nullif(_metric_expr("revenue"), 0),
-        "roe": _metric_expr("net_profit", "net_profit_parent")
-        / func.nullif(_metric_expr("total_equity", "equity_parent"), 0),
-        "liability_ratio": _metric_expr("total_liabilities") / func.nullif(_metric_expr("total_assets"), 0),
-    }
-    return mapping.get(sort_by, mapping["revenue"])
+    return SORT_EXPRESSIONS[sort_by]()
+
+
+SORT_EXPRESSIONS = {
+    "revenue": lambda: _metric_expr("revenue"),
+    "net_profit": lambda: _metric_expr("net_profit", "net_profit_parent"),
+    "net_margin": lambda: _metric_expr("net_profit", "net_profit_parent")
+    / func.nullif(_metric_expr("revenue"), 0),
+    "roe": lambda: _metric_expr("net_profit", "net_profit_parent")
+    / func.nullif(_metric_expr("total_equity", "equity_parent"), 0),
+    "liability_ratio": lambda: _metric_expr("total_liabilities") / func.nullif(_metric_expr("total_assets"), 0),
+}

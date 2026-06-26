@@ -29,6 +29,8 @@ def build_engine(url: str):
 
 def init_db() -> None:
     url = database_url()
+    if not _should_auto_create(url):
+        return
     if url in _INITIALIZED_URLS:
         return
     with _INIT_LOCK:
@@ -37,6 +39,16 @@ def init_db() -> None:
         engine = build_engine(url)
         Base.metadata.create_all(bind=engine)
         _INITIALIZED_URLS.add(url)
+
+
+def _should_auto_create(url: str) -> bool:
+    import os
+
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return True
+    if os.getenv("FINRESEARCH_AUTO_CREATE_TABLES", "").lower() == "true":
+        return True
+    return url.startswith("sqlite")
 
 
 def get_library_path() -> Path:

@@ -119,7 +119,7 @@ def _overview_charts(
 ) -> list[dict[str, object]]:
     source_note = "来源：本地 PostgreSQL/SQLite 行情快照；无数据时不造点。"
     return [
-        {
+        _chart({
             "id": "breadth_pie",
             "title": "涨跌家数",
             "kind": "pie",
@@ -133,8 +133,8 @@ def _overview_charts(
                 {"name": "下跌", "value": breadth["decline_count"]},
                 {"name": "平盘", "value": breadth["flat_count"]},
             ],
-        },
-        {
+        }, frequency="daily"),
+        _chart({
             "id": "sector_change",
             "title": "板块平均涨跌幅",
             "kind": "bar",
@@ -147,8 +147,8 @@ def _overview_charts(
                 {"name": row["sector_name"], "value": _percent(row.get("avg_change_pct"))}
                 for row in sectors[:20]
             ],
-        },
-        {
+        }, frequency="daily"),
+        _chart({
             "id": "turnover_top",
             "title": "成交额前列",
             "kind": "bar",
@@ -158,8 +158,8 @@ def _overview_charts(
             "empty": not quotes,
             "note": source_note,
             "data": [{"name": row["symbol"], "value": row.get("amount")} for row in quotes[:20]],
-        },
-        {
+        }, frequency="daily", currency="CNY"),
+        _chart({
             "id": "mover_distribution",
             "title": "涨跌幅分布",
             "kind": "histogram",
@@ -169,8 +169,8 @@ def _overview_charts(
             "empty": not quotes,
             "note": source_note,
             "data": _distribution(quotes),
-        },
-        {
+        }, frequency="daily"),
+        _chart({
             "id": "index_latest",
             "title": "指数最新收盘",
             "kind": "bar",
@@ -180,8 +180,8 @@ def _overview_charts(
             "empty": not indices,
             "note": source_note,
             "data": [{"name": row["index_name"] or row["index_code"], "value": row.get("close")} for row in indices],
-        },
-        {
+        }, frequency="daily"),
+        _chart({
             "id": "coverage",
             "title": "本地覆盖度",
             "kind": "bar",
@@ -195,8 +195,18 @@ def _overview_charts(
                 {"name": "板块", "value": snapshot.get("coverage", {}).get("sectors", 0)},
                 {"name": "来源", "value": snapshot.get("source_count", 0)},
             ],
-        },
+        }, frequency="daily"),
     ]
+
+
+def _chart(chart: dict[str, object], *, frequency: str, currency: str | None = None) -> dict[str, object]:
+    chart["frequency"] = frequency
+    chart["currency"] = currency
+    chart["updated_at"] = chart.get("as_of")
+    chart["quality_status"] = "empty" if chart.get("empty") else "ok"
+    chart["warnings"] = ["missing_source_data"] if chart.get("empty") else []
+    chart["error"] = None
+    return chart
 
 
 def _distribution(rows: list[dict[str, object]]) -> list[dict[str, object]]:

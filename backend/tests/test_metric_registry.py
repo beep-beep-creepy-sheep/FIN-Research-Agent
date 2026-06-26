@@ -12,6 +12,9 @@ def test_metric_registry_has_required_core_coverage() -> None:
     assert get_metric_definition("cash_conversion") is None
     assert all(definition.formula for definition in definitions)
     assert all(definition.inputs for definition in definitions)
+    assert all(definition.applicable_industries for definition in definitions)
+    assert all(definition.caveats for definition in definitions)
+    assert all(definition.calculation_version for definition in definitions)
 
 
 def test_registered_metrics_calculate_core_ratios_and_growth() -> None:
@@ -64,6 +67,8 @@ def test_registered_metrics_report_missing_reasons_without_fabrication() -> None
 
     assert by_code["net_margin"].value is None
     assert by_code["net_margin"].missing_reason == "missing_numerator"
+    assert by_code["net_margin"].as_of == "2025-12-31"
+    assert by_code["net_margin"].formula_version == "1.0.0"
     assert by_code["revenue_yoy"].missing_reason is not None
 
 
