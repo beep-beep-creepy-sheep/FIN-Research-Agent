@@ -14,13 +14,14 @@ export type CompanySummary = {
 export type MarketChart = {
   id: string;
   title: string;
-  kind: "pie" | "bar" | "histogram";
+  kind: "pie" | "bar" | "histogram" | "line" | "candlestick";
   unit: string;
   as_of?: string | null;
   source: string;
   empty: boolean;
   note?: string;
-  data: Array<{ name: string; value: number | string | null }>;
+  data: Array<Record<string, number | string | null | undefined> & { name: string }>;
+  series?: Array<{ name: string; field: string }>;
 };
 
 export type MarketOverview = {
@@ -63,6 +64,10 @@ export async function uploadDocument(formData: FormData): Promise<Record<string,
 
 export function getCompanySummary(symbol: string): Promise<CompanySummary> {
   return fetchJson<CompanySummary>(`/v1/companies/${symbol}/summary`);
+}
+
+export function getCompanyCharts(symbol: string): Promise<MarketChart[]> {
+  return fetchJson<MarketChart[]>(`/v1/companies/${symbol}/charts`);
 }
 
 export function createSyncJob(symbol: string, years = 5): Promise<Record<string, unknown>> {

@@ -1,14 +1,16 @@
 import { Card } from "@/components/Card";
-import { getCompanySummary } from "@/lib/api";
+import { EChartPanel } from "@/charts/EChartPanel";
+import { getCompanyCharts, getCompanySummary, type MarketChart } from "@/lib/api";
 import { SyncButton } from "@/features/SyncButton";
 import { ResearchRuns } from "@/features/ResearchRuns";
 
 export default async function CompanyPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
   let summary = null;
+  let charts: MarketChart[] = [];
   let error = "";
   try {
-    summary = await getCompanySummary(symbol);
+    [summary, charts] = await Promise.all([getCompanySummary(symbol), getCompanyCharts(symbol)]);
   } catch (exc) {
     error = exc instanceof Error ? exc.message : "Unable to load company";
   }
@@ -111,6 +113,12 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
             ) : null}
           </div>
         </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        {charts.map((chart) => (
+          <EChartPanel key={chart.id} chart={chart} />
+        ))}
       </div>
     </main>
   );

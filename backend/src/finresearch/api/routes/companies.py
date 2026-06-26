@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from finresearch.api.dependencies import library_path
 from finresearch.repositories.companies import CompanyRepository
 from finresearch.services.company_analysis import CompanyAnalysisService
+from finresearch.services.company_charts import CompanyChartService
 
 
 router = APIRouter()
@@ -38,3 +39,11 @@ def get_company_summary(
     result = CompanyAnalysisService(db_path).execute(symbol, years=years, as_of_date=as_of)
     return result.__dict__
 
+
+@router.get("/{symbol}/charts")
+def get_company_charts(
+    symbol: str,
+    years: int = 10,
+    db_path: Path = Depends(library_path),
+) -> list[dict[str, object]]:
+    return CompanyChartService(db_path).build(symbol, years=years)

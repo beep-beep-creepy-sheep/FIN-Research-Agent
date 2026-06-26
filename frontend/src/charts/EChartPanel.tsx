@@ -59,6 +59,60 @@ function buildOption(chart: MarketChart): echarts.EChartsOption {
       ],
     };
   }
+  if (chart.kind === "candlestick") {
+    return {
+      color: ["#0f766e", "#b91c1c"],
+      tooltip: { trigger: "axis" },
+      grid: [
+        { left: 48, right: 18, top: 18, height: 132 },
+        { left: 48, right: 18, top: 178, height: 48 },
+      ],
+      xAxis: [
+        { type: "category", data: names },
+        { type: "category", data: names, gridIndex: 1, axisLabel: { show: false } },
+      ],
+      yAxis: [{ scale: true }, { gridIndex: 1, name: "量" }],
+      series: [
+        {
+          type: "candlestick",
+          data: chart.data.map((item) => {
+            const row = item as Record<string, unknown>;
+            return [
+              numberValue(row.open as number | string | null),
+              numberValue(row.close as number | string | null),
+              numberValue(row.low as number | string | null),
+              numberValue(row.high as number | string | null),
+            ];
+          }),
+        },
+        {
+          type: "bar",
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+          data: chart.data.map((item) => numberValue((item as Record<string, unknown>).volume as number | string | null)),
+          barMaxWidth: 16,
+        },
+      ],
+    };
+  }
+  if (chart.kind === "line") {
+    const series = chart.series?.length ? chart.series : [{ name: chart.title, field: "value" }];
+    return {
+      color: ["#0f766e", "#2563eb", "#b91c1c", "#ca8a04"],
+      tooltip: { trigger: "axis" },
+      legend: { top: 0, right: 0 },
+      grid: { left: 52, right: 18, top: 36, bottom: 44 },
+      xAxis: { type: "category", data: names, axisLabel: { interval: 0, rotate: names.length > 6 ? 35 : 0 } },
+      yAxis: { type: "value", name: chart.unit },
+      series: series.map((item) => ({
+        name: item.name,
+        type: "line",
+        smooth: true,
+        showSymbol: false,
+        data: chart.data.map((row) => numberValue((row as Record<string, unknown>)[item.field] as number | string | null)),
+      })),
+    };
+  }
   return {
     color: ["#0f766e"],
     tooltip: { trigger: "axis" },
@@ -69,7 +123,7 @@ function buildOption(chart: MarketChart): echarts.EChartsOption {
   };
 }
 
-function numberValue(value: number | string | null) {
+function numberValue(value: number | string | null | undefined) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
     const parsed = Number(value);

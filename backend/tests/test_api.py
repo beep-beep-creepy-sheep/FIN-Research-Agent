@@ -76,6 +76,25 @@ def test_market_overview_empty_state(tmp_path, monkeypatch) -> None:
     assert len(payload["charts"]) == 6
 
 
+def test_company_charts_endpoint_empty_state(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+    client = TestClient(app)
+
+    response = client.get("/v1/companies/600519/charts")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [chart["id"] for chart in payload] == [
+        "kline_volume",
+        "financial_trend",
+        "margin_trend",
+        "returns_trend",
+        "valuation_band",
+    ]
+    assert payload[0]["empty"] is True
+
+
 def test_research_with_exa_disabled_does_not_call_mcporter(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
