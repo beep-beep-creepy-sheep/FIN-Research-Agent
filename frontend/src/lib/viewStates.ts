@@ -1,4 +1,4 @@
-import type { MarketChart, MarketOverview } from "./api";
+import type { MarketChart, MarketOverview, MetricObservation } from "./api";
 
 export function marketOverviewState(overview: MarketOverview | null) {
   if (!overview) return "api_unavailable";
@@ -54,4 +54,15 @@ export function connectorState(connector: Record<string, unknown>) {
   if (connector.configured === false) return "not_configured";
   if (connector.available === false) return connector.status ?? "unavailable";
   return "available";
+}
+
+export function metricObservationState(metric: MetricObservation) {
+  if (metric.implementation_status === "defined_only") return "not_implemented";
+  if (metric.implementation_status === "not_available") return "not_implemented";
+  if (metric.quality_status === "not_applicable") return "not_applicable";
+  if (metric.value === null || metric.value === undefined) return "implemented_missing_data";
+  if ((metric.warnings ?? []).length > 0 || metric.quality_status === "calculated_with_warnings") {
+    return "calculated_with_warnings";
+  }
+  return "calculated";
 }

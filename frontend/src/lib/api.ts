@@ -18,6 +18,21 @@ export type CompanySummary = {
   generated_at: string;
 };
 
+export type MetricObservation = {
+  code: string;
+  implementation_status?: string | null;
+  value?: number | null;
+  quality_status?: string | null;
+  missing_reason?: string | null;
+  warnings?: string[];
+  formula?: string;
+  inputs?: Record<string, unknown>;
+  source_fact_ids?: number[];
+  source_price_ids?: number[];
+  as_of?: string | null;
+  calculation_version?: string | null;
+};
+
 export type MarketChart = {
   id: string;
   title: string;
@@ -81,6 +96,10 @@ export function getCompanySummary(symbol: string): Promise<CompanySummary> {
 
 export function getCompanyCharts(symbol: string): Promise<MarketChart[]> {
   return fetchJson<MarketChart[]>(API_ROUTES.companyCharts(symbol));
+}
+
+export function getCompanyMetrics(symbol: string): Promise<MetricObservation[]> {
+  return fetchJson<MetricObservation[]>(`/v1/financials/${symbol}/metrics`);
 }
 
 export function createSyncJob(symbol: string, years = 5): Promise<Record<string, unknown>> {
