@@ -109,6 +109,10 @@ export function getResearchRuns(): Promise<Array<Record<string, unknown>>> {
   return fetchJson<Array<Record<string, unknown>>>("/v1/research-runs");
 }
 
+export function getAiStatus(): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>("/v1/ai/status");
+}
+
 export function getMarketOverview(market = "CN"): Promise<MarketOverview> {
   return fetchJson<MarketOverview>(`/v1/market/overview?market=${encodeURIComponent(market)}`);
 }
