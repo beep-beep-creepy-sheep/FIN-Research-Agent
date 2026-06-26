@@ -68,11 +68,11 @@ class MarketSnapshotService:
                 "market": market,
                 "trade_date": trade_date,
                 "universe_count": len(latest_quotes),
-                "advance_count": sum(1 for row in latest_quotes if _number(row.get("change_pct")) > 0),
-                "decline_count": sum(1 for row in latest_quotes if _number(row.get("change_pct")) < 0),
-                "flat_count": sum(1 for row in latest_quotes if _number(row.get("change_pct")) == 0),
-                "limit_up_count": sum(1 for row in latest_quotes if _number(row.get("change_pct")) >= 0.095),
-                "limit_down_count": sum(1 for row in latest_quotes if _number(row.get("change_pct")) <= -0.095),
+                "advance_count": sum(1 for row in latest_quotes if _number_gt(row.get("change_pct"), 0)),
+                "decline_count": sum(1 for row in latest_quotes if _number_lt(row.get("change_pct"), 0)),
+                "flat_count": sum(1 for row in latest_quotes if _number_eq(row.get("change_pct"), 0)),
+                "limit_up_count": sum(1 for row in latest_quotes if _number_gte(row.get("change_pct"), 0.095)),
+                "limit_down_count": sum(1 for row in latest_quotes if _number_lte(row.get("change_pct"), -0.095)),
                 "above_ma20_count": 0,
                 "above_ma60_count": 0,
                 "total_amount": sum(_number(row.get("amount")) or 0.0 for row in latest_quotes),
@@ -192,9 +192,9 @@ class MarketSnapshotService:
                     "sector_name": sector_name,
                     "trade_date": trade_date,
                     "constituents_count": len(items),
-                    "advance_count": sum(1 for item in items if _number(item.get("change_pct")) > 0),
-                    "decline_count": sum(1 for item in items if _number(item.get("change_pct")) < 0),
-                    "flat_count": sum(1 for item in items if _number(item.get("change_pct")) == 0),
+                    "advance_count": sum(1 for item in items if _number_gt(item.get("change_pct"), 0)),
+                    "decline_count": sum(1 for item in items if _number_lt(item.get("change_pct"), 0)),
+                    "flat_count": sum(1 for item in items if _number_eq(item.get("change_pct"), 0)),
                     "avg_change_pct": fmean(changes) if changes else None,
                     "median_change_pct": median(changes) if changes else None,
                     "total_amount": sum(_number(item.get("amount")) or 0.0 for item in items),
@@ -214,10 +214,37 @@ def _matches_market(company: Company, market: str) -> bool:
 def _number(value: object) -> float | None:
     if value is None:
         return None
+    if not isinstance(value, str | bytes | int | float):
+        return None
     try:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _number_gt(value: object, threshold: float) -> bool:
+    number = _number(value)
+    return number is not None and number > threshold
+
+
+def _number_gte(value: object, threshold: float) -> bool:
+    number = _number(value)
+    return number is not None and number >= threshold
+
+
+def _number_lt(value: object, threshold: float) -> bool:
+    number = _number(value)
+    return number is not None and number < threshold
+
+
+def _number_lte(value: object, threshold: float) -> bool:
+    number = _number(value)
+    return number is not None and number <= threshold
+
+
+def _number_eq(value: object, expected: float) -> bool:
+    number = _number(value)
+    return number is not None and number == expected
 
 
 def _movers(rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:

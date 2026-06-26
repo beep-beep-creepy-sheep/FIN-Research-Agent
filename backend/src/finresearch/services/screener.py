@@ -94,7 +94,7 @@ class ScreenerService:
 
         with session_scope() as session:
             rows = [dict(row._mapping) for row in session.execute(statement).all()]
-        as_of_values = [row.get("period_end") for row in rows if row.get("period_end")]
+        as_of_values = [str(row["period_end"]) for row in rows if row.get("period_end") is not None]
         return {
             "rows": rows,
             "count": len(rows),

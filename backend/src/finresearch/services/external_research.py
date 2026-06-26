@@ -33,7 +33,7 @@ class ExternalResearchService:
     def search(self, query: str, connectors: list[str] | None = None, limit: int = 10) -> ExternalResearchResult:
         names = connectors or ["direct_web", "rss"]
         warnings: list[str] = []
-        items = []
+        items: list[dict[str, object]] = []
         for name in names:
             connector = self.registry.get(name)
             if connector is None:

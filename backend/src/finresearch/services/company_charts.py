@@ -177,6 +177,8 @@ def _source(rows: list[dict[str, object]], fallback: str) -> str:
 def _number(value: object) -> float | None:
     if value is None:
         return None
+    if not isinstance(value, str | bytes | int | float):
+        return None
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -186,7 +188,7 @@ def _number(value: object) -> float | None:
 def _ratio(numerator: object, denominator: object) -> float | None:
     left = _number(numerator)
     right = _number(denominator)
-    if left is None or right in (None, 0):
+    if left is None or right is None or right == 0:
         return None
     return left / right
 

@@ -59,6 +59,11 @@ def test_registered_metrics_calculate_core_ratios_and_growth() -> None:
     assert values["liability_ratio"] == 90.0 / 210.0
     assert values["current_ratio"] == 2.0
     assert round(values["receivable_days"] or 0, 2) == round(11.0 / 120.0 * 365, 2)
+    assert values["roe"] == approx(24.0 / 110.0)
+    assert values["roa"] == approx(24.0 / 200.0)
+    assert values["cash_conversion_cycle"] == approx(
+        (11.0 / 120.0 * 365) + (9.0 / 66.0 * 365) - (7.0 / 66.0 * 365)
+    )
 
 
 def test_registered_metrics_report_missing_reasons_without_fabrication() -> None:
@@ -70,6 +75,34 @@ def test_registered_metrics_report_missing_reasons_without_fabrication() -> None
     assert by_code["net_margin"].as_of == "2025-12-31"
     assert by_code["net_margin"].formula_version == "1.0.0"
     assert by_code["revenue_yoy"].missing_reason is not None
+
+
+def test_registered_metrics_reject_negative_earnings_for_pe() -> None:
+    observations = calculate_registered_metrics(
+        [
+            {
+                "period_end": "2025-12-31",
+                "market_cap": 100.0,
+                "net_profit_parent": -5.0,
+            }
+        ]
+    )
+    pe = {item.code: item for item in observations}["pe"]
+
+    assert pe.value is None
+    assert pe.missing_reason == "not_applicable_negative_earnings"
+
+
+def test_registered_metrics_do_not_mix_currencies() -> None:
+    observations = calculate_registered_metrics(
+        [
+            {"period_end": "2024-12-31", "currency": "CNY", "revenue": 100.0},
+            {"period_end": "2025-12-31", "currency": "USD", "revenue": 120.0},
+        ]
+    )
+
+    assert {item.quality_status for item in observations} == {"missing"}
+    assert {item.missing_reason for item in observations} == {"currency_mismatch"}
 
 
 def test_legacy_metric_calculator_keeps_compatible_keys() -> None:

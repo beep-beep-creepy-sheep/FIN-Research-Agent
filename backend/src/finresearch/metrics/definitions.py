@@ -54,6 +54,13 @@ def calculate_registered_metrics(matrix: list[dict[str, object]]) -> list[Metric
             _missing_observation(definition, None, "missing_structured_financial_facts")
             for definition in METRIC_DEFINITIONS
         ]
+    currencies = {str(row["currency"]) for row in matrix if row.get("currency")}
+    if len(currencies) > 1:
+        period = _period(sorted(matrix, key=lambda row: str(row.get("period_end") or ""))[-1])
+        return [
+            _missing_observation(definition, period, "currency_mismatch")
+            for definition in METRIC_DEFINITIONS
+        ]
     ordered = sorted(matrix, key=lambda row: str(row.get("period_end") or ""))
     latest = ordered[-1]
     previous = ordered[-2] if len(ordered) > 1 else None
@@ -88,7 +95,8 @@ def available_metric_values(matrix: list[dict[str, object]]) -> dict[str, float]
 def metric_quality_flags(observations: list[MetricObservation]) -> list[str]:
     flags: list[str] = []
     values = {observation.code: observation.value for observation in observations}
-    if values.get("ocf_to_net_profit") is not None and values["ocf_to_net_profit"] < 1:
+    ocf_to_net_profit = values.get("ocf_to_net_profit")
+    if ocf_to_net_profit is not None and ocf_to_net_profit < 1:
         flags.append("operating_cash_flow_below_net_profit")
     return flags
 
@@ -179,6 +187,8 @@ def _number(row: dict[str, object] | None, *keys: str) -> float | None:
         value = row.get(key)
         if value is None:
             continue
+        if not isinstance(value, str | bytes | int | float):
+            continue
         try:
             number = float(value)
         except (TypeError, ValueError):
@@ -217,7 +227,7 @@ def _yoy(keys: tuple[str, ...]):
         latest_value = _number(latest, *keys)
         previous_value = _number(previous, *keys)
         value, reason = _safe_div(latest_value, previous_value)
-        if reason:
+        if reason or value is None:
             return None, reason
         return value - 1, None
 
@@ -269,6 +279,13 @@ def _net_debt_to_equity(latest: dict[str, object], previous: dict[str, object] |
     return _safe_div(net_debt, _number(latest, "total_equity", "equity_parent"))
 
 
+def _pe(latest: dict[str, object], _previous: dict[str, object] | None, _matrix: list[dict[str, object]]) -> tuple[float | None, str | None]:
+    earnings = _number(latest, "net_profit_parent", "net_profit")
+    if earnings is not None and earnings <= 0:
+        return None, "not_applicable_negative_earnings"
+    return _safe_div(_number(latest, "market_cap"), earnings)
+
+
 def _quick_ratio(latest: dict[str, object], _previous: dict[str, object] | None, _matrix: list[dict[str, object]]) -> tuple[float | None, str | None]:
     current_assets = _number(latest, "current_assets")
     inventory = _number(latest, "inventory")
@@ -289,7 +306,7 @@ def _working_capital_to_revenue(latest: dict[str, object], _previous: dict[str, 
 def _days(balance_keys: tuple[str, ...], flow_keys: tuple[str, ...]):
     def calculate(latest: dict[str, object], previous: dict[str, object] | None, _matrix: list[dict[str, object]]) -> tuple[float | None, str | None]:
         value, reason = _safe_div(_average(latest, previous, *balance_keys), _number(latest, *flow_keys))
-        if reason:
+        if reason or value is None:
             return None, reason
         return value * 365, None
 
@@ -377,7 +394,7 @@ METRIC_FORMULAS = {
     "eps": _ratio(("net_profit_parent",), ("shares_outstanding",)),
     "book_value_per_share": _ratio(("equity_parent", "total_equity"), ("shares_outstanding",)),
     "dividend_payout": _ratio(("cash_dividends",), ("net_profit_parent", "net_profit")),
-    "pe": _ratio(("market_cap",), ("net_profit_parent", "net_profit")),
+    "pe": _pe,
     "pb": _ratio(("market_cap",), ("equity_parent", "total_equity")),
     "ps": _ratio(("market_cap",), ("revenue",)),
 }

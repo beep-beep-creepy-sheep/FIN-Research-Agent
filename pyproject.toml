@@ -17,7 +17,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.8"]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.8",
+  "mypy>=1.10",
+  "types-requests>=2.32",
+  "detect-secrets>=1.5",
+  "pip-audit>=2.7",
+]
 
 [project.scripts]
 finresearch = "app.cli:main"
@@ -28,3 +35,12 @@ packages = ["app"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+files = ["backend/src/finresearch"]
+namespace_packages = true
+explicit_package_bases = true
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true

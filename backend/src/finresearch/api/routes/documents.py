@@ -43,6 +43,7 @@ def upload_document(
         copyfileobj(file.file, handle)
     metadata = DocumentMetadata(
         title=Path(filename).stem,
+        source_path=str(destination),
         source_type=destination.suffix.lower().removeprefix(".") or "file",
         issuer=issuer or None,
         report_period=report_period or None,

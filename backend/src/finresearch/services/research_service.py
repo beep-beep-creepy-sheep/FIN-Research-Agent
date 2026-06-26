@@ -447,14 +447,18 @@ def compact_text(value: object, limit: int = 160) -> str:
 
 
 def _float(value: object) -> float | None:
+    if value is None:
+        return None
+    if not isinstance(value, str | bytes | int | float):
+        return None
     try:
-        return float(value)  # type: ignore[arg-type]
+        return float(value)
     except (TypeError, ValueError):
         return None
 
 
 def _divide(numerator: float | None, denominator: float | None) -> float | None:
-    if numerator is None or denominator in (None, 0):
+    if numerator is None or denominator is None or denominator == 0:
         return None
     return numerator / denominator
 

@@ -118,6 +118,7 @@ def _overview_charts(
     indices: list[dict[str, object]],
 ) -> list[dict[str, object]]:
     source_note = "来源：本地 PostgreSQL/SQLite 行情快照；无数据时不造点。"
+    coverage = _dict_value(snapshot.get("coverage"))
     return [
         _chart({
             "id": "breadth_pie",
@@ -191,8 +192,8 @@ def _overview_charts(
             "empty": False,
             "note": source_note,
             "data": [
-                {"name": "证券", "value": snapshot.get("coverage", {}).get("security_quotes", 0)},
-                {"name": "板块", "value": snapshot.get("coverage", {}).get("sectors", 0)},
+                {"name": "证券", "value": coverage.get("security_quotes", 0)},
+                {"name": "板块", "value": coverage.get("sectors", 0)},
                 {"name": "来源", "value": snapshot.get("source_count", 0)},
             ],
         }, frequency="daily"),
@@ -241,6 +242,8 @@ def _distribution(rows: list[dict[str, object]]) -> list[dict[str, object]]:
 def _number(value: object) -> float | None:
     if value is None:
         return None
+    if not isinstance(value, str | bytes | int | float):
+        return None
     try:
         return float(value)
     except (TypeError, ValueError):
@@ -250,3 +253,7 @@ def _number(value: object) -> float | None:
 def _percent(value: object) -> float | None:
     number = _number(value)
     return None if number is None else number * 100
+
+
+def _dict_value(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}

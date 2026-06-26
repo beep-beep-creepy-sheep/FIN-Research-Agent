@@ -21,7 +21,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.8"]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.8",
+  "mypy>=1.10",
+  "types-requests>=2.32",
+  "detect-secrets>=1.5",
+  "pip-audit>=2.7",
+]
 akshare = ["akshare"]
 pdf = ["pypdf"]
 
