@@ -1,4 +1,4 @@
-# Stage 1/2 Anti-Shortcut Audit
+# Stage 1/2 Audit
 
 Updated: 2026-06-26
 
@@ -6,58 +6,66 @@ Updated: 2026-06-26
 
 PASS means directly verified. FAIL means verified broken. BLOCKED means a required external capability was unavailable. PARTIAL means real coverage exists but is incomplete. NOT_CONFIGURED means no configured capability exists. UNVERIFIED means not actually checked.
 
-## Audit Results
+## Current Status
 
-- Stage 1: PASS locally.
-- Stage 2: PASS locally.
-- Python type check: PASS; mypy over `backend/src/finresearch`, 74 files, 0 errors. `python -m compileall` was not used as a type check.
-- GitHub Actions: UNVERIFIED for the new commits until pushed and queried. YAML parsing is not counted as CI success.
-- Alembic: PASS. `0001_initial_schema.py` now uses explicit Alembic operations. `0002_stage2_metadata_fields.py` adds Stage 2 metadata fields and supports downgrade.
-- Security: PARTIAL. tracked-secret-file-check is only grep over tracked files. detect-secrets is the actual secret scan and passed locally.
-- Python dependency audit: PASS for project-declared dependencies.
-- npm dependency audit: PARTIAL due 2 moderate Next/PostCSS findings with only a breaking force fix available.
+- Stage 1: PASS locally from prior anti-shortcut gate.
+- Stage 2 professional metric completion: PASS locally pending final full gate and pushed GitHub Actions.
+- Python type check: PASS; mypy over `backend/src/finresearch`, 78 files, 0 errors. `python -m compileall` is not counted as a type check.
+- GitHub Actions: UNVERIFIED until this turn's commits are pushed and queried.
+- Alembic: PASS locally. Revision `0003_professional_metric_metadata.py` uses explicit column operations and downgrade; SQLite empty, current PostgreSQL, and temporary empty PostgreSQL upgrades all passed.
+- Security: PARTIAL overall because npm audit has unresolved moderate advisories. tracked-secret-file-check is PASS but remains only a grep-style check and is not a complete security scan; detect-secrets is PASS with 0 findings.
+- Python dependency audit: PASS, no known vulnerabilities.
+- npm dependency audit: PARTIAL, 2 moderate Next/PostCSS findings; available `npm audit fix --force` would make a breaking Next change, so it was not applied.
 
-## Metric Formula Audit
+## Metric Status Counts
 
-| Metric | Formula / current behavior | Inputs | Period rule | Avg balance | Missing / zero / negative / currency / as_of behavior | Test | Status |
+- implemented: 66
+- partial: 0
+- defined_only: 0
+- not_available: 0
+
+## Professional Metric Audit
+
+| Metric | Formula / Behavior | Inputs | Period Rule | Avg Balance | Missing / Zero / Negative / Currency / as_of Behavior | Tests | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| ROE | `net_profit or net_profit_parent / average(total_equity or equity_parent)` | net profit, equity | latest plus previous row | yes | missing and zero denominator return null; negative profit allowed; currency mismatch returns null for all metrics; as_of latest period | `backend/tests/test_metric_registry.py` | implemented |
-| ROA | `net_profit or net_profit_parent / average(total_assets)` | net profit, assets | latest plus previous row | yes | same as ROE | `backend/tests/test_metric_registry.py` | implemented |
-| ROIC | true ROIC is not implemented; only `roic_proxy = operating_profit * (1 - tax_rate) / (total_assets - cash - current_liabilities)` | operating profit, tax, assets, cash, current liabilities | latest row | no | proxy only; do not label as exact ROIC | registry only | defined_only |
-| Revenue TTM | no registered calculation | four comparable quarters required | not implemented | n/a | not available | none | not_available |
-| Revenue YoY | `latest revenue / previous revenue - 1` | revenue | adjacent sorted rows; comparability not enforced | n/a | missing/zero previous returns null; cumulative-quarter normalization not implemented | `backend/tests/test_metric_registry.py` | partial |
-| FCF | `operating_cash_flow - abs(capital_expenditure)` | OCF, capex | latest row | n/a | missing returns null; negative FCF allowed; currency mismatch guarded | `backend/tests/test_metric_registry.py` | implemented |
-| FCF Yield | no registered calculation | FCF, market cap | not implemented | n/a | not available | none | not_available |
-| DSO | `average(accounts_receivable) / revenue * 365` | receivables, revenue | latest plus previous row | yes | missing/zero revenue returns null | `backend/tests/test_metric_registry.py` | implemented |
-| DIO | `average(inventory) / cost_of_goods_sold * 365` | inventory, COGS | latest plus previous row | yes | missing/zero COGS returns null | `backend/tests/test_metric_registry.py` | implemented |
-| DPO | `average(accounts_payable) / cost_of_goods_sold * 365` | payables, COGS | latest plus previous row | yes | missing/zero COGS returns null | `backend/tests/test_metric_registry.py` | implemented |
-| Cash Conversion Cycle | DSO + DIO - DPO | receivables, inventory, payables, revenue, COGS | latest plus previous row | yes | any component missing returns null | `backend/tests/test_metric_registry.py` | implemented |
-| Net Debt | `interest_bearing_debt or total_debt - cash or cash_and_equivalents` | debt, cash | latest row | no | missing returns null; negative net debt allowed | registry tests cover missing; formula audited | implemented |
-| Net Debt / EBITDA | no registered calculation | net debt, EBITDA | not implemented | n/a | not available | none | not_available |
-| Interest Coverage | `operating_profit / interest_expense` | operating profit, interest expense | latest row | no | missing/zero denominator returns null; negative operating profit allowed | registry tests cover denominator behavior | implemented |
-| PE TTM | no TTM calculation; current `pe` only uses latest net profit and now rejects non-positive earnings | market cap, net profit | latest row only | no | negative/zero earnings returns `not_applicable_negative_earnings` | `backend/tests/test_metric_registry.py` | not_available |
-| EV / EBITDA | no registered calculation | EV, EBITDA | not implemented | n/a | not available | none | not_available |
-| Beta | no calculation; benchmark-aligned returns not implemented | security returns, benchmark returns | aligned return series required | n/a | not available | none | not_available |
-| Alpha | no calculation; benchmark-aligned returns not implemented | security returns, benchmark returns, risk-free assumption | aligned return series required | n/a | not available | none | not_available |
-| Annualized Volatility | no calculation | return series | trading-day convention required | n/a | not available | none | not_available |
-| Maximum Drawdown | no calculation | price or equity curve series | ordered time series required | n/a | not available | none | not_available |
+| ROE | net profit / average equity | net_profit or net_profit_parent, equity | latest plus previous compatible row | yes | missing/zero returns null; mixed currency rejected in matrix path | `backend/tests/test_metric_registry.py` | PASS |
+| ROA | net profit / average assets | net_profit or net_profit_parent, assets | latest plus previous compatible row | yes | missing/zero returns null; mixed currency rejected | `backend/tests/test_metric_registry.py` | PASS |
+| ROIC | EBIT TTM * (1 - normalized tax rate) / average invested capital | EBIT, tax/PBT, debt, equity, optional NCI/excess cash | TTM numerator, begin/end capital | yes | banks/insurance/securities return not_applicable_industry; insufficient capital returns null | `backend/tests/test_professional_metrics.py` | PASS |
+| Revenue TTM | sum revenue from four contiguous normalized quarters | revenue | four comparable quarters | n/a | missing quarter returns insufficient_contiguous_quarters; no fabricated data | `backend/tests/test_period_normalization.py`, `backend/tests/test_professional_metrics.py` | PASS |
+| Revenue YoY | comparable period revenue / prior comparable revenue - 1 | revenue | annual-vs-annual or same quarter prior year | n/a | missing comparable period or zero denominator returns null | `backend/tests/test_period_normalization.py` | PASS |
+| Net Profit TTM | sum parent net profit from four contiguous normalized quarters | net_profit_parent, net_profit fallback | four comparable quarters | n/a | insufficient_contiguous_quarters | `backend/tests/test_professional_metrics.py` | PASS |
+| Net Profit YoY | comparable period net profit / prior comparable period - 1 | net_profit_parent, net_profit fallback | annual-vs-annual or same quarter prior year | n/a | missing comparable period or zero denominator returns null | `backend/tests/test_professional_metrics.py` | PASS |
+| FCF TTM | TTM OCF - standardized TTM capex outflow | operating_cash_flow, capital_expenditure | four comparable quarters | n/a | missing input returns null; positive capex warns and is treated as outflow | `backend/tests/test_professional_metrics.py` | PASS |
+| FCF Yield | FCF TTM / market capitalization | FCF TTM, market_cap or price * shares | as_of market cap | n/a | missing market cap or zero denominator returns null; source price ID retained | `backend/tests/test_professional_metrics.py` | PASS |
+| EBITDA TTM | direct EBITDA TTM or EBIT TTM + depreciation TTM + amortization TTM | ebitda or ebit/depreciation/amortization | four comparable quarters | n/a | does not use operating_profit as EBITDA; missing components return null | `backend/tests/test_professional_metrics.py` | PASS |
+| Net Debt | interest-bearing debt - cash equivalents | debt, cash | latest financial period | n/a | negative net debt allowed; missing debt/cash returns null | `backend/tests/test_professional_metrics.py` | PASS |
+| Net Debt / EBITDA | net debt / EBITDA TTM | net debt, EBITDA TTM | latest debt, TTM EBITDA | n/a | EBITDA <= 0 returns not_applicable_non_positive_ebitda | `backend/tests/test_professional_metrics.py` | PASS |
+| Enterprise Value | market cap + debt + preferred equity + NCI - cash | market cap, debt, optional preferred/NCI, cash | latest financial period plus as_of price | n/a | optional components assumed zero only with warnings/basic_ev quality | `backend/tests/test_professional_metrics.py` | PASS |
+| EV / EBITDA | enterprise value / EBITDA TTM | EV, EBITDA TTM | latest EV, TTM EBITDA | n/a | industry not applicable and non-positive EBITDA handled | `backend/tests/test_professional_metrics.py` | PASS |
+| PE TTM | market cap / net_profit_parent TTM | market cap, net profit TTM | latest market cap and TTM earnings | n/a | earnings <= 0 returns not_applicable_negative_earnings | `backend/tests/test_professional_metrics.py` | PASS |
+| Annualized Volatility | sample stdev(daily returns) * sqrt(252) | adjusted close | ordered price series | n/a | insufficient history returns null | `backend/tests/test_price_analytics.py` | PASS |
+| Maximum Drawdown | min(value / running max - 1) | adjusted close | ordered price series | n/a | insufficient history returns null; start/trough/recovery metadata retained | `backend/tests/test_price_analytics.py` | PASS |
+| Beta | cov(stock, benchmark) / var(benchmark) | aligned stock and benchmark returns | inner join by trade date | n/a | insufficient history or zero benchmark variance returns null | `backend/tests/test_price_analytics.py` | PASS |
+| Alpha | Jensen annualized alpha | aligned returns, beta, risk-free rate | inner joined sample | n/a | propagates beta missing reason; assumptions recorded | `backend/tests/test_price_analytics.py` | PASS |
 
-## Security Notes
+## Period Normalization Audit
 
-- subprocess usage is limited to `subprocess.run(argv, shell=False)` in the Agent Reach adapter with timeouts.
-- Cookie/token logging: no frontend connector status test payload exposes cookie/token/password fields; detect-secrets found 0 findings.
-- Config interface locality: FastAPI CORS is restricted to `localhost:3000` and `127.0.0.1:3000`; dev servers bind to loopback in smoke tests.
-- URL/SSRF: direct web reads arbitrary HTTP(S) URLs through `requests.get`; this remains PARTIAL hardening and should be constrained before non-local deployment.
+- Cumulative quarter conversion: PASS.
+- TTM contiguous-quarter enforcement: PASS.
+- Annual comparable YoY: PASS.
+- Currency mismatch handling: PASS.
+- Restatement precedence: PASS.
+- strict_as_of repository filtering: PASS, `backend/tests/test_repositories.py` covers both raw fact listing and typed `FinancialPeriod` output.
 
-## Frontend Coverage Added
+## API And Frontend Audit
 
-- Market API failure.
-- `no_snapshot` empty state.
-- Single market card failure isolation.
-- K-line no-data state.
-- Screener empty results.
-- Screener invalid sort.
-- Screener pagination.
-- Background research failed status.
-- Ollama unavailable status.
-- Connector disabled status.
+- `/v1/financials/{symbol}/metrics` returns implementation status, quality status, missing reason, formula, input values, source fact IDs, source price IDs, warnings, periods, price metadata, assumptions, and calculation version.
+- Frontend metric state classifier distinguishes not implemented, not applicable, implemented but missing data, calculated with warnings, and calculated.
+- Existing market page, screener, research, and worker compatibility tests remain part of the full gate.
+
+## Known Limitations
+
+- GitHub Actions status: UNVERIFIED until pushed.
+- Benchmark series are implemented at service level but are not auto-discovered by the current company metrics API.
+- Market cap currency conversion is not attempted; mismatched currencies return missing rather than converted values.
+- npm audit remains PARTIAL for the documented moderate Next/PostCSS advisory.
