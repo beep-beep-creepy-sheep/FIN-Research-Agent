@@ -9,9 +9,11 @@ PASS means directly verified. FAIL means verified broken. BLOCKED means a requir
 ## Current Status
 
 - Stage 1: PASS locally from prior anti-shortcut gate.
-- Stage 2 professional metric completion: PASS locally pending final full gate and pushed GitHub Actions.
-- Python type check: PASS; mypy over `backend/src/finresearch`, 78 files, 0 errors. `python -m compileall` is not counted as a type check.
-- GitHub Actions: UNVERIFIED until this turn's commits are pushed and queried.
+- Stage 2 professional metric completion: PASS locally pending pushed GitHub Actions.
+- Full Python tests: PASS; `PYTHONPATH=.:backend/src pytest -q`, 85 passed, covering root `tests/` and `backend/tests/`.
+- Python type check: PASS; `PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch`, 78 files, 0 errors. `python -m compileall` is not counted as a type check.
+- Final commit SHA: see Git HEAD and final checkpoint output after this document commit.
+- GitHub Actions: UNVERIFIED until the final commit is pushed and queried.
 - Alembic: PASS locally. Revision `0003_professional_metric_metadata.py` uses explicit column operations and downgrade; SQLite empty, current PostgreSQL, and temporary empty PostgreSQL upgrades all passed.
 - Security: PARTIAL overall because npm audit has unresolved moderate advisories. tracked-secret-file-check is PASS but remains only a grep-style check and is not a complete security scan; detect-secrets is PASS with 0 findings.
 - Python dependency audit: PASS, no known vulnerabilities.
@@ -51,11 +53,16 @@ PASS means directly verified. FAIL means verified broken. BLOCKED means a requir
 ## Period Normalization Audit
 
 - Cumulative quarter conversion: PASS.
+- Cumulative YTD input recognition: PASS. Dates such as `YYYY-01-01` to `YYYY-06-30` or `YYYY-09-30` are treated as `cumulative_ytd`.
+- Single-quarter input recognition: PASS. Dates such as `YYYY-04-01` to `YYYY-06-30`, `YYYY-07-01` to `YYYY-09-30`, and `YYYY-10-01` to `YYYY-12-31` are treated as `single_quarter` and are not differenced again.
+- Mixed single-quarter and cumulative input: PASS. Single-quarter facts are used directly for their quarter; cumulative facts remain available for later cumulative differencing.
+- Unknown flow basis: PASS. Ambiguous dates or explicitly unknown basis produce `ambiguous_flow_basis` and no guessed flow value.
 - TTM contiguous-quarter enforcement: PASS.
 - Annual comparable YoY: PASS.
 - Currency mismatch handling: PASS.
 - Restatement precedence: PASS.
 - strict_as_of repository filtering: PASS, `backend/tests/test_repositories.py` covers both raw fact listing and typed `FinancialPeriod` output.
+- Source lineage: PASS. Cumulative differencing preserves both current and prior fact IDs; single-quarter values preserve only their own fact ID.
 
 ## API And Frontend Audit
 
@@ -65,7 +72,14 @@ PASS means directly verified. FAIL means verified broken. BLOCKED means a requir
 
 ## Known Limitations
 
-- GitHub Actions status: UNVERIFIED until pushed.
+- GitHub Actions status: UNVERIFIED until pushed and queried for backend, frontend, and e2e jobs.
 - Benchmark series are implemented at service level but are not auto-discovered by the current company metrics API.
 - Market cap currency conversion is not attempted; mismatched currencies return missing rather than converted values.
 - npm audit remains PARTIAL for the documented moderate Next/PostCSS advisory.
+
+## Stage 3 Handoff Notes
+
+- Add automatic benchmark index selection and loading for the company metrics API.
+- Select China A-share defaults from exchange, market, and industry configuration rather than hard-coding one index.
+- Return `benchmark_code`, `benchmark_source`, and selection reason to the frontend.
+- If benchmark data is unavailable, Beta and Alpha should return explicit benchmark missing reasons.

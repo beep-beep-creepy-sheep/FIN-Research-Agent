@@ -195,6 +195,9 @@ class FinancialFactRepository:
                     source_urls_by_metric=urls,
                     source_pages_by_metric=pages,
                     values=values,
+                    flow_basis=_str_or_none(first.get("flow_basis")),
+                    is_cumulative=_bool_or_none(first.get("is_cumulative")),
+                    source_flow_basis=_str_or_none(first.get("source_flow_basis")),
                 )
             )
         return sorted(periods, key=lambda period: period.period_end, reverse=True)
@@ -217,6 +220,9 @@ def _fact_dict(fact: FinancialFactModel) -> dict[str, object]:
         "statement_type": fact.statement_type,
         "statement_scope": fact.statement_scope,
         "is_consolidated": fact.is_consolidated,
+        "flow_basis": None,
+        "is_cumulative": None,
+        "source_flow_basis": None,
         "source_url": fact.source_url,
         "source_page": fact.source_page,
         "source_text": fact.source_text,
@@ -250,4 +256,16 @@ def _int_or_none(value: object) -> int | None:
             return int(value)
         except ValueError:
             return None
+    return None
+
+
+def _bool_or_none(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "y"}:
+            return True
+        if lowered in {"false", "0", "no", "n"}:
+            return False
     return None

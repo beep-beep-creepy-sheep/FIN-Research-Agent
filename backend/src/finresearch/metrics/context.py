@@ -22,6 +22,9 @@ class FinancialPeriod:
     source_urls_by_metric: dict[str, tuple[str, ...]]
     source_pages_by_metric: dict[str, tuple[int, ...]]
     values: dict[str, float]
+    flow_basis: str | None = None
+    is_cumulative: bool | None = None
+    source_flow_basis: str | None = None
 
     def value(self, *codes: str) -> float | None:
         for code in codes:
@@ -132,4 +135,3 @@ FLOW_METRICS = {
     "cost_of_goods_sold",
     "cash_dividends",
 }
-
