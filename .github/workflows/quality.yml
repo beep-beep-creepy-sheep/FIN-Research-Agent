@@ -21,8 +21,16 @@ jobs:
         run: ruff check .
       - name: Python tests
         run: PYTHONPATH=.:backend/src pytest -q
+      - name: Python type check
+        run: PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch
       - name: Alembic empty SQLite upgrade
         run: ALEMBIC_DATABASE_URL=sqlite:///./data/ci-empty.sqlite PYTHONPATH=.:backend/src alembic upgrade head
+      - name: tracked-secret-file-check
+        run: make tracked-secret-file-check
+      - name: Secret scan
+        run: make secret-scan
+      - name: Python dependency audit
+        run: make python-audit
 
   frontend:
     runs-on: ubuntu-latest
@@ -38,10 +46,14 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
+      - name: Unit tests
+        run: npm test
       - name: Production build
         run: npm run build
       - name: Type check
         run: npx tsc --noEmit
+      - name: npm dependency audit
+        run: npm audit --audit-level=high
 
   e2e:
     runs-on: ubuntu-latest

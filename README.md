@@ -157,7 +157,7 @@ make postgres-config
 也可以手动设置：
 
 ```env
-DATABASE_URL=postgresql+psycopg://finresearch:password@localhost:5432/finresearch
+DATABASE_URL=postgresql+psycopg://finresearch@localhost:5432/finresearch
 ```
 
 一键启动脚本会读取 `backend/.env`。切换数据库后需要重启后端和 worker。首次连接新数据库时，后端会自动创建表结构。
