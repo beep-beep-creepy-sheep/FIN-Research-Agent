@@ -4,6 +4,7 @@ import { DocumentUploader } from "@/features/DocumentUploader";
 import { ResearchConsole } from "@/features/ResearchConsole";
 import { ResearchRuns } from "@/features/ResearchRuns";
 import { SearchCompany } from "@/features/SearchCompany";
+import Link from "next/link";
 
 export default function DashboardPage() {
   return (
@@ -33,9 +34,12 @@ export default function DashboardPage() {
           <SearchCompany />
         </Card>
         <Card title="任务中心">
-          <p className="text-sm text-slate-600">
-            同步和报告生成都会变成后台任务。点击后稍等几秒，再进入公司页看结果。
-          </p>
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>同步和市场快照会进入本地 jobs 表。点击后稍等几秒，再进入对应页面看结果。</p>
+            <Link href="/market" className="inline-block font-medium text-accent">
+              打开市场终端
+            </Link>
+          </div>
         </Card>
         <Card title="外部连接器">
           <ConnectorStatus />

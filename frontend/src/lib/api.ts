@@ -11,6 +11,29 @@ export type CompanySummary = {
   generated_at: string;
 };
 
+export type MarketChart = {
+  id: string;
+  title: string;
+  kind: "pie" | "bar" | "histogram";
+  unit: string;
+  as_of?: string | null;
+  source: string;
+  empty: boolean;
+  note?: string;
+  data: Array<{ name: string; value: number | string | null }>;
+};
+
+export type MarketOverview = {
+  market: string;
+  snapshot: Record<string, unknown>;
+  breadth: Record<string, unknown> | null;
+  sectors: Array<Record<string, unknown>>;
+  indices: Array<Record<string, unknown>>;
+  movers: Record<string, Array<Record<string, unknown>>>;
+  charts: MarketChart[];
+  empty: boolean;
+};
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -66,4 +89,15 @@ export function createResearchRun(symbol: string, years = 5): Promise<Record<str
 
 export function getResearchRuns(): Promise<Array<Record<string, unknown>>> {
   return fetchJson<Array<Record<string, unknown>>>("/v1/research-runs");
+}
+
+export function getMarketOverview(market = "CN"): Promise<MarketOverview> {
+  return fetchJson<MarketOverview>(`/v1/market/overview?market=${encodeURIComponent(market)}`);
+}
+
+export function createMarketSnapshotJob(market = "CN"): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>("/v1/jobs", {
+    method: "POST",
+    body: JSON.stringify({ job_type: "market_snapshot", market }),
+  });
 }
