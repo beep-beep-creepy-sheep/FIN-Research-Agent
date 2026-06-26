@@ -81,10 +81,22 @@ class JobRepository:
             job = session.get(Job, job_id)
             return _job_dict(job) if job else None
 
-    def list_queued(self, limit: int = 1) -> list[dict[str, object]]:
+    def list_queued(self, limit: int = 1, *, stale_after_minutes: int = 15) -> list[dict[str, object]]:
+        cutoff = datetime.now(UTC) - timedelta(minutes=stale_after_minutes)
         with session_scope() as session:
             jobs = session.scalars(
-                select(Job).where(Job.status == "queued").order_by(Job.id).limit(limit)
+                select(Job)
+                .where(
+                    (Job.status == "queued")
+                    | (
+                        (Job.status == "running")
+                        & (Job.completed_at.is_(None))
+                        & (Job.started_at.is_not(None))
+                        & (Job.started_at < cutoff)
+                    )
+                )
+                .order_by(Job.id)
+                .limit(limit)
             ).all()
             return [_job_dict(job) for job in jobs]
 

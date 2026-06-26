@@ -88,3 +88,22 @@ def test_sqlalchemy_job_repository(monkeypatch, tmp_path) -> None:
 
     assert updated["status"] == "running"
     assert updated["payload"]["symbol"] == "600519"
+
+
+def test_job_repository_recovers_stale_running_jobs(monkeypatch, tmp_path) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from finresearch.database.models import Job
+    from finresearch.database.session import session_scope
+
+    _set_database(monkeypatch, tmp_path)
+    repo = JobRepository()
+    created = repo.create("research_run", {"research_run_id": 1, "symbol": "600519"})
+    repo.update(int(created["id"]), status="running", progress=10, current_stage="starting")
+    with session_scope() as session:
+        row = session.get(Job, int(created["id"]))
+        row.started_at = datetime.now(UTC) - timedelta(minutes=20)
+
+    queued = repo.list_queued(limit=1, stale_after_minutes=15)
+
+    assert queued[0]["id"] == created["id"]

@@ -59,7 +59,8 @@ class JobService:
         job = jobs[0]
         job_id = int(job["id"])
         payload = dict(job["payload"])
-        self.repository.update(job_id, status="running", progress=10, current_stage="syncing")
+        first_stage = "syncing" if job["job_type"] == "sync_company" else "starting"
+        self.repository.update(job_id, status="running", progress=10, current_stage=first_stage)
         try:
             if job["job_type"] == "sync_company":
                 symbol = str(payload["symbol"])
