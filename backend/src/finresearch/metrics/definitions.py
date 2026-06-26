@@ -19,6 +19,12 @@ class MetricDefinition:
     caveats: str = ""
     calculation_version: str = "1.0.0"
     missing_behavior: str = "mark_missing"
+    implementation_status: str = "implemented"
+    calculation_domain: str = "financial"
+    minimum_inputs: tuple[str, ...] = ()
+    period_requirements: str = "latest_period"
+    benchmark_required: bool = False
+    market_data_required: bool = False
 
 
 @dataclass(frozen=True)
@@ -66,7 +72,13 @@ def calculate_registered_metrics(matrix: list[dict[str, object]]) -> list[Metric
     previous = ordered[-2] if len(ordered) > 1 else None
     observations: list[MetricObservation] = []
     for definition in METRIC_DEFINITIONS:
-        value, reason = METRIC_FORMULAS[definition.code](latest, previous, ordered)
+        formula = METRIC_FORMULAS.get(definition.code)
+        if formula is None:
+            observations.append(
+                _missing_observation(definition, _period(latest), "requires_professional_metric_engine")
+            )
+            continue
+        value, reason = formula(latest, previous, ordered)
         observations.append(
             MetricObservation(
                 code=definition.code,
@@ -111,6 +123,12 @@ def _definition(
     unit: str = "ratio",
     periodicity: str = "latest_period",
     source_requirement: str = "structured_financial_facts",
+    implementation_status: str = "implemented",
+    calculation_domain: str = "financial",
+    minimum_inputs: tuple[str, ...] | None = None,
+    period_requirements: str | None = None,
+    benchmark_required: bool = False,
+    market_data_required: bool = False,
 ) -> MetricDefinition:
     return MetricDefinition(
         code=code,
@@ -123,6 +141,12 @@ def _definition(
         periodicity=periodicity,
         source_requirement=source_requirement,
         caveats="Uses available structured fields only; returns null with a missing reason instead of imputing values.",
+        implementation_status=implementation_status,
+        calculation_domain=calculation_domain,
+        minimum_inputs=minimum_inputs or inputs,
+        period_requirements=period_requirements or periodicity,
+        benchmark_required=benchmark_required,
+        market_data_required=market_data_required,
     )
 
 
@@ -168,6 +192,31 @@ METRIC_DEFINITIONS = [
     _definition("pe", "P/E", "市盈率", "valuation", "market_cap / net_profit_parent", ("market_cap", "net_profit_parent"), "multiple", source_requirement="market_cap_and_financial_facts"),
     _definition("pb", "P/B", "市净率", "valuation", "market_cap / equity_parent", ("market_cap", "equity_parent"), "multiple", source_requirement="market_cap_and_financial_facts"),
     _definition("ps", "P/S", "市销率", "valuation", "market_cap / revenue", ("market_cap", "revenue"), "multiple", source_requirement="market_cap_and_financial_facts"),
+    _definition("revenue_ttm", "Revenue TTM", "TTM收入", "growth", "sum(revenue from four contiguous comparable quarters)", ("revenue",), "currency", "ttm", period_requirements="four_contiguous_quarters"),
+    _definition("net_profit_ttm", "Net Profit TTM", "TTM归母净利润", "growth", "sum(net_profit_parent from four contiguous comparable quarters)", ("net_profit_parent", "net_profit"), "currency", "ttm", period_requirements="four_contiguous_quarters"),
+    _definition("fcf_ttm", "Free Cash Flow TTM", "TTM自由现金流", "cash_flow", "TTM operating_cash_flow - standardized TTM capital_expenditure outflow", ("operating_cash_flow", "capital_expenditure"), "currency", "ttm", period_requirements="four_contiguous_quarters"),
+    _definition("fcf_yield", "FCF Yield", "自由现金流收益率", "valuation", "FCF TTM / equity market capitalization", ("operating_cash_flow", "capital_expenditure", "market_cap", "shares_outstanding"), market_data_required=True),
+    _definition("ebitda_ttm", "EBITDA TTM", "TTM EBITDA", "profitability", "direct EBITDA TTM or EBIT TTM + depreciation TTM + amortization TTM", ("ebitda", "ebit", "depreciation", "amortization"), "currency", "ttm", period_requirements="four_contiguous_quarters"),
+    _definition("net_debt_to_ebitda", "Net Debt / EBITDA", "净债务/EBITDA", "leverage", "net_debt / EBITDA TTM", ("interest_bearing_debt", "cash_and_equivalents", "ebitda"), "multiple", "ttm"),
+    _definition("enterprise_value", "Enterprise Value", "企业价值", "valuation", "market_cap + interest_bearing_debt + preferred_equity + non_controlling_interest - cash", ("market_cap", "interest_bearing_debt", "cash_and_equivalents"), "currency", "latest_period", market_data_required=True),
+    _definition("ev_to_ebitda", "EV / EBITDA", "企业价值/EBITDA", "valuation", "enterprise_value / EBITDA TTM", ("enterprise_value", "ebitda"), "multiple", "ttm", market_data_required=True),
+    _definition("pe_ttm", "P/E TTM", "TTM市盈率", "valuation", "market_cap / net_profit_parent TTM", ("market_cap", "net_profit_parent"), "multiple", "ttm", market_data_required=True),
+    _definition("roic", "ROIC", "投入资本回报率", "returns", "EBIT TTM * (1 - normalized_tax_rate) / average invested capital", ("ebit", "income_tax", "profit_before_tax", "interest_bearing_debt", "total_equity")),
+    _definition("return_1d", "1D Return", "1日收益", "price_return", "adjusted_close_t / adjusted_close_t-1 - 1", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("return_5d", "5D Return", "5日收益", "price_return", "adjusted_close_t / adjusted_close_t-5 - 1", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("return_20d", "20D Return", "20日收益", "price_return", "adjusted_close_t / adjusted_close_t-20 - 1", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("return_60d", "60D Return", "60日收益", "price_return", "adjusted_close_t / adjusted_close_t-60 - 1", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("return_ytd", "YTD Return", "年初至今收益", "price_return", "latest adjusted close / first adjusted close of year - 1", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("annualized_volatility", "Annualized Volatility", "年化波动率", "price_risk", "sample_stddev(daily_returns) * sqrt(trading_days_per_year)", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("downside_volatility", "Downside Volatility", "下行波动率", "price_risk", "sample_stddev(negative_daily_returns) * sqrt(trading_days_per_year)", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("maximum_drawdown", "Maximum Drawdown", "最大回撤", "price_risk", "min(value_t / running_max_t - 1)", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("beta", "Beta", "贝塔", "price_risk", "cov(stock_return, benchmark_return) / var(benchmark_return)", ("close", "benchmark_close"), calculation_domain="price", benchmark_required=True, market_data_required=True),
+    _definition("alpha", "Jensen Alpha", "詹森Alpha", "price_risk", "annualized_stock_return - (risk_free_rate + beta * (annualized_benchmark_return - risk_free_rate))", ("close", "benchmark_close"), calculation_domain="price", benchmark_required=True, market_data_required=True),
+    _definition("r_squared", "R Squared", "R平方", "price_risk", "corr(stock_return, benchmark_return) ** 2", ("close", "benchmark_close"), calculation_domain="price", benchmark_required=True, market_data_required=True),
+    _definition("tracking_error", "Tracking Error", "跟踪误差", "price_risk", "sample_stddev(stock_return - benchmark_return) * sqrt(trading_days_per_year)", ("close", "benchmark_close"), calculation_domain="price", benchmark_required=True, market_data_required=True),
+    _definition("information_ratio", "Information Ratio", "信息比率", "price_risk", "annualized_active_return / tracking_error", ("close", "benchmark_close"), calculation_domain="price", benchmark_required=True, market_data_required=True),
+    _definition("sharpe_ratio", "Sharpe Ratio", "夏普比率", "price_risk", "(annualized_return - risk_free_rate) / annualized_volatility", ("close",), calculation_domain="price", market_data_required=True),
+    _definition("sortino_ratio", "Sortino Ratio", "索提诺比率", "price_risk", "(annualized_return - risk_free_rate) / downside_volatility", ("close",), calculation_domain="price", market_data_required=True),
 ]
 
 METRIC_DEFINITION_BY_CODE = {definition.code: definition for definition in METRIC_DEFINITIONS}

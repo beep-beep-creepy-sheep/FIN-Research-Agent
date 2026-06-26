@@ -38,6 +38,12 @@ class MetricDefinitionRepository:
                 row.caveats = definition.caveats
                 row.calculation_version = definition.calculation_version
                 row.missing_behavior = definition.missing_behavior
+                row.implementation_status = definition.implementation_status
+                row.calculation_domain = definition.calculation_domain
+                row.minimum_inputs = list(definition.minimum_inputs)
+                row.period_requirements = definition.period_requirements
+                row.benchmark_required = definition.benchmark_required
+                row.market_data_required = definition.market_data_required
         return len(definitions)
 
     def list(self) -> list[dict[str, object]]:
@@ -58,6 +64,12 @@ class MetricDefinitionRepository:
                     "caveats": row.caveats,
                     "calculation_version": row.calculation_version,
                     "missing_behavior": row.missing_behavior,
+                    "implementation_status": row.implementation_status,
+                    "calculation_domain": row.calculation_domain,
+                    "minimum_inputs": row.minimum_inputs,
+                    "period_requirements": row.period_requirements,
+                    "benchmark_required": row.benchmark_required,
+                    "market_data_required": row.market_data_required,
                 }
                 for row in rows
             ]

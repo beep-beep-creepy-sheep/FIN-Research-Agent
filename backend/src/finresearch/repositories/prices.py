@@ -6,6 +6,7 @@ from app.financial_store import infer_exchange
 from app.models import PriceRecord
 from finresearch.database.models import Company, Price
 from finresearch.database.session import session_scope
+from finresearch.metrics.context import PricePoint
 
 
 class PriceRepository:
@@ -62,6 +63,42 @@ class PriceRepository:
                 .limit(limit)
             ).all()
             return [_price_dict(row) for row in rows]
+
+    def price_series(
+        self,
+        symbol: str,
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        adjustment_type: str | None = None,
+        limit: int = 1000,
+    ) -> list[PricePoint]:
+        with session_scope() as session:
+            statement = select(Price).where(Price.symbol == symbol)
+            if start_date:
+                statement = statement.where(Price.trade_date >= start_date)
+            if end_date:
+                statement = statement.where(Price.trade_date <= end_date)
+            if adjustment_type:
+                statement = statement.where(Price.adjustment_type == adjustment_type)
+            rows = session.scalars(
+                statement.order_by(Price.trade_date.asc()).limit(limit)
+            ).all()
+        points: list[PricePoint] = []
+        for row in rows:
+            if row.close is None:
+                continue
+            points.append(
+                PricePoint(
+                    id=row.id,
+                    symbol=row.symbol,
+                    trade_date=row.trade_date,
+                    close=float(row.close),
+                    adjustment_type=row.adjustment_type,
+                    data_source=row.data_source,
+                )
+            )
+        return points
 
 
 def _price_dict(price: Price) -> dict[str, object]:
