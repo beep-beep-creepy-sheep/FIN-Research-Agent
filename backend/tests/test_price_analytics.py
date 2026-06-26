@@ -2,6 +2,7 @@ from pytest import approx
 from fastapi.testclient import TestClient
 
 from finresearch.metrics import MetricResult, PricePoint
+from finresearch.settings import Settings
 from finresearch.services.price_analytics import PriceAnalyticsService, select_canonical_price_series
 
 
@@ -188,3 +189,72 @@ def test_metrics_api_uses_selected_adjustment_and_source(tmp_path, monkeypatch) 
     assert by_code["return_1d"]["data_source"] == "primary"
     assert by_code["return_1d"]["source_price_ids"]
     assert by_code["return_1d"]["selected_source_reason"].startswith("source_priority:primary")
+
+
+def test_production_default_price_sources_exclude_test_sources(monkeypatch) -> None:
+    monkeypatch.delenv("PRICE_SOURCE_PRIORITY", raising=False)
+
+    settings = Settings.from_env()
+
+    assert "fixture_price" not in settings.price_source_priority
+    assert "test" not in settings.price_source_priority
+    assert settings.price_source_priority == ("local_prices", "akshare", "exchange")
+
+
+def test_test_price_sources_require_safety_switch(monkeypatch) -> None:
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.delenv("ALLOW_TEST_DATA_SOURCES", raising=False)
+    blocked = select_canonical_price_series(
+        _prices([10.0, 11.0], source="fixture_price"),
+        symbol="000001",
+        adjustment_type="qfq",
+        source_priority=("fixture_price",),
+    )
+
+    monkeypatch.setenv("ALLOW_TEST_DATA_SOURCES", "true")
+    allowed = select_canonical_price_series(
+        _prices([10.0, 11.0], source="fixture_price"),
+        symbol="000001",
+        adjustment_type="qfq",
+        source_priority=("fixture_price",),
+    )
+
+    assert blocked.missing_reason == "test_price_sources_disabled"
+    assert blocked.selected_source_reason == "test_price_sources_disabled:fixture_price"
+    assert allowed.missing_reason is None
+    assert allowed.data_source == "fixture_price"
+
+
+def test_real_price_source_wins_when_fixture_is_present_in_production(monkeypatch) -> None:
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.delenv("ALLOW_TEST_DATA_SOURCES", raising=False)
+    prices = _prices([10.0, 11.0], source="fixture_price") + _prices([20.0, 22.0], source="local_prices", start_id=10)
+
+    selected = select_canonical_price_series(
+        prices,
+        symbol="000001",
+        adjustment_type="qfq",
+        source_priority=("fixture_price", "local_prices"),
+    )
+
+    assert selected.missing_reason is None
+    assert selected.data_source == "local_prices"
+    assert [point.id for point in selected.prices] == [10, 11]
+
+
+def test_explicit_production_test_source_priority_is_blocked(monkeypatch) -> None:
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("ALLOW_TEST_DATA_SOURCES", raising=False)
+
+    selected = select_canonical_price_series(
+        _prices([10.0, 11.0], source="test"),
+        symbol="000001",
+        adjustment_type="qfq",
+        source_priority=("test",),
+    )
+
+    assert selected.missing_reason == "test_price_sources_disabled"
+    assert selected.selected_source_reason == "test_price_sources_disabled:test"

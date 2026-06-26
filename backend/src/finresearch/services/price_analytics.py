@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, replace
 from math import sqrt
 from statistics import fmean, stdev
@@ -25,6 +26,7 @@ PRICE_METRIC_CODES = (
     "sharpe_ratio",
     "sortino_ratio",
 )
+TEST_PRICE_SOURCES = frozenset({"fixture_price", "test"})
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,19 @@ def select_canonical_price_series(
         )
 
     priority = source_priority or get_settings().price_source_priority
+    allow_test_sources = _test_price_sources_allowed()
+    blocked_sources = {source for source in priority if source in TEST_PRICE_SOURCES}
+    if not allow_test_sources:
+        priority = tuple(source for source in priority if source not in TEST_PRICE_SOURCES)
+        adjustment_candidates = tuple(
+            point for point in adjustment_candidates if point.data_source not in TEST_PRICE_SOURCES
+        )
+        if not adjustment_candidates:
+            reason = "test_price_sources_disabled"
+            if blocked_sources:
+                reason = f"{reason}:{','.join(sorted(blocked_sources))}"
+            return CanonicalPriceSeries(tuple(), configured_adjustment, None, reason, "test_price_sources_disabled")
+
     sources = {point.data_source for point in adjustment_candidates}
     selected_source = next((source for source in priority if source in sources), None)
     reason = "source_priority"
@@ -101,6 +116,14 @@ def select_canonical_price_series(
         selected_source,
         f"{reason}:{selected_source};adjustment_type:{configured_adjustment}",
     )
+
+
+def _test_price_sources_allowed() -> bool:
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return True
+    if os.getenv("APP_ENV", "").strip().lower() == "test":
+        return True
+    return os.getenv("ALLOW_TEST_DATA_SOURCES", "").strip().lower() == "true"
 
 
 def validate_price_series(prices: tuple[PricePoint, ...]) -> str | None:

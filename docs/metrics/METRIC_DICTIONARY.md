@@ -20,7 +20,9 @@ The three counts are intentionally separate. The registry count is the number of
 
 ### Legacy Financial Matrix Metrics
 
-These remain available for existing company summary, screener, research flows, and as fallback handlers in `MetricCalculationService`. They use the compatible financial matrix path and return null with `missing_reason` on missing inputs or zero denominators. When a professional handler and a legacy formula share a code, the professional result wins in the API.
+These remain available for existing company summary, screener, research flows, and as fallback handlers in `MetricCalculationService`. API fallback results are calculated from typed `FinancialPeriod` inputs so source context is preserved; the standalone registry helper still accepts plain matrices for compatibility tests and older local callers. When a professional handler and a legacy formula share a code, the professional result wins in the API.
+
+Successful legacy API metrics return the actual participating `source_fact_ids`, `source_urls`, `input_values`, `period_start`, `period_end`, `as_of`, and formula version. The service does not attach every fact in a period. Same-period ratios use only their numerator and denominator facts; two-period and average-balance metrics include the latest flow facts plus the beginning and ending balance facts actually used.
 
 | Metric | Formula | Inputs | Period Rule | Missing Behavior | Tests |
 | --- | --- | --- | --- | --- | --- |
@@ -40,6 +42,14 @@ These remain available for existing company summary, screener, research flows, a
 | roic_proxy | operating profit tax-adjusted / simple invested capital | operating_profit, tax, assets, cash, liabilities | latest period | proxy only; separate from true `roic` | `backend/tests/test_metric_registry.py` |
 | dso, dio, dpo, cash_conversion_cycle | average balances over revenue/COGS days | receivables, inventory, payables, revenue, COGS | latest plus previous period | any missing component -> null | `backend/tests/test_metric_registry.py` |
 | liquidity/leverage/per-share/valuation latest metrics | deterministic ratios from structured facts | balance sheet, income, shares, market_cap | latest period | missing/zero/non-positive earnings rules | `backend/tests/test_metric_registry.py` |
+
+Legacy period compatibility rules:
+
+- Same-period flow ratios such as gross margin, operating margin, net margin, OCF margin, FCF margin, and capex intensity require one compatible flow period.
+- ROE and ROA require the same latest flow period plus matching beginning and ending average-balance periods.
+- Receivable days, inventory days, payable days, and Cash Conversion Cycle require matching latest flow facts and compatible beginning and ending balance facts.
+- Point-in-time ratios such as current ratio, quick ratio, cash ratio, liability ratio, debt/equity, and book value per share use one report period.
+- Currency, report type, statement scope, consolidation basis, flow basis, and adjacent period boundary mismatches return explicit missing reasons instead of being guessed.
 
 ### Professional Financial Metrics
 
@@ -82,3 +92,10 @@ All price analytics use a canonical adjusted-close return series with one symbol
 - `FinancialFactRepository.periods(..., strict_as_of=True)` excludes facts with missing `publication_date` or publication dates later than `as_of_date`.
 - Market cap uses direct trusted `market_cap` facts when available; otherwise it uses the latest price at or before `as_of_date` multiplied by shares outstanding.
 - Missing values remain null with explicit reasons. No production path fabricates facts, prices, or benchmark returns.
+
+## Test Data Source Isolation
+
+- Production default `PRICE_SOURCE_PRIORITY` is `local_prices,akshare,exchange`.
+- `fixture_price` and `test` are not selected in non-test environments unless `PYTEST_CURRENT_TEST`, `APP_ENV=test`, or `ALLOW_TEST_DATA_SOURCES=true` is set.
+- If only blocked test price sources are available, price metrics return `test_price_sources_disabled`.
+- Stored fixture records are not deleted; they are simply ineligible for production selection.

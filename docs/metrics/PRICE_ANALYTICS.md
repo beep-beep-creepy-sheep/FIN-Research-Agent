@@ -19,7 +19,10 @@ Updated: 2026-06-26
 
 - One calculation uses one requested `symbol`; mixed symbols return `ambiguous_price_series`.
 - China stock adjustment type is read from `CN_STOCK_ADJUSTMENT_TYPE`, default `qfq`.
-- Source priority is read from `PRICE_SOURCE_PRIORITY`, default `local_prices,akshare,exchange,fixture_price,test`.
+- Source priority is read from `PRICE_SOURCE_PRIORITY`, default `local_prices,akshare,exchange`.
+- Test-only sources `fixture_price` and `test` are blocked outside tests unless `PYTEST_CURRENT_TEST`, `APP_ENV=test`, or `ALLOW_TEST_DATA_SOURCES=true` is present.
+- If production selection sees only blocked test sources, metrics return `missing_reason: test_price_sources_disabled`.
+- If production selection sees both real and blocked test sources, blocked sources are ignored and a real source is selected by priority.
 - If the configured adjustment type exists, other adjustment types are ignored rather than mixed.
 - If multiple sources exist for the configured adjustment type, one source is selected by priority.
 - Within the selected source, each `trade_date` must appear once, dates are sorted ascending, and `close` must be positive.
@@ -68,4 +71,4 @@ Benchmark metrics also record `benchmark_code` and `benchmark_source`.
 
 ## Tests
 
-Coverage lives in `backend/tests/test_price_analytics.py` and includes normal returns, maximum drawdown, beta, alpha, zero benchmark variance, insufficient samples, volatility, lineage fields, mixed qfq/hfq/none inputs, multiple sources on the same date, duplicate selected-source dates, zero prices, negative prices, normal qfq selection, and API use of the selected adjustment/source policy.
+Coverage lives in `backend/tests/test_price_analytics.py` and includes normal returns, maximum drawdown, beta, alpha, zero benchmark variance, insufficient samples, volatility, lineage fields, mixed qfq/hfq/none inputs, multiple sources on the same date, duplicate selected-source dates, zero prices, negative prices, normal qfq selection, production blocking for `fixture_price`/`test`, explicit test-source enablement, real-source precedence over fixtures, and API use of the selected adjustment/source policy.

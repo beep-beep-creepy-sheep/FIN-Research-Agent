@@ -8,14 +8,14 @@ Updated: 2026-06-26
 - Stage 2 status: PASS locally for final metric integrity, canonical price series, and common TTM windows.
 - Stage 3 status: pending; not started.
 - Current branch: main.
-- Current commit before this final metric-integrity fix: `82a6cddce36c47879878bb632d7b71087be24dc8`.
-- origin/main before this final metric-integrity fix: `82a6cddce36c47879878bb632d7b71087be24dc8`.
-- Final commit SHA: see Git HEAD and the final checkpoint output after this document commit.
+- Current commit before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
+- origin/main before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
+- Final pushed commit SHA for this document update is recorded in the Stage 2 final checkpoint output.
 - GitHub Actions true status: UNVERIFIED until the final commit is pushed and backend, frontend, and e2e jobs complete.
 
 ## Local Gates Run During Stage 2 Completion
 
-- Python tests: PASS, `PYTHONPATH=.:backend/src pytest -q`, 100 passed, covering root `tests/` and `backend/tests/`.
+- Python tests: PASS, `PYTHONPATH=.:backend/src pytest -q`, 108 passed, covering root `tests/` and `backend/tests/`.
 - Ruff: PASS, `ruff check .`.
 - Real Python type check: PASS, `PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch`, 79 files, 0 errors.
 - Frontend tests: PASS, `npm test`, 12 passed.
@@ -50,7 +50,10 @@ Updated: 2026-06-26
 - Mixed flow basis inputs: PASS. Single-quarter facts win for their own quarter while cumulative facts remain available for later cumulative differencing.
 - Ambiguous flow basis inputs: PASS. Unknown or missing flow period basis returns `ambiguous_flow_basis` and does not guess.
 - Source lineage: PASS. Differenced quarters retain both current and prior fact IDs; direct single-quarter values retain only their own fact IDs.
-- Canonical price series: PASS. Each calculation uses one symbol, one configured adjustment type, one selected data source, unique increasing trade dates, and positive closes. China stock adjustment type defaults to `CN_STOCK_ADJUSTMENT_TYPE=qfq`; source priority defaults to `PRICE_SOURCE_PRIORITY=local_prices,akshare,exchange,fixture_price,test`.
+- Legacy financial metric lineage: PASS. `MetricCalculationService` no longer flattens `FinancialPeriod` inputs into a context-free matrix for API fallback metrics. Successful legacy financial metrics carry the actual participating `source_fact_ids`, `source_urls`, `input_values`, `period_start`, `period_end`, `as_of`, and formula version. IDs are selected from the fields used by each formula, not from all facts in the period; two-period and average-balance metrics retain both latest and prior balance fact IDs.
+- Legacy period compatibility: PASS. Legacy fallback metrics require compatible currency, report type, statement scope, consolidation flag, flow basis, and period boundaries. Same-period flow ratios use one flow period; ROE/ROA and working-capital day metrics require a matching latest flow period plus compatible beginning and ending balance periods; point-in-time ratios use the same report period. Incompatible or unavailable periods return explicit `missing_reason` values instead of guessing.
+- Canonical price series: PASS. Each calculation uses one symbol, one configured adjustment type, one selected data source, unique increasing trade dates, and positive closes. China stock adjustment type defaults to `CN_STOCK_ADJUSTMENT_TYPE=qfq`; source priority defaults to `PRICE_SOURCE_PRIORITY=local_prices,akshare,exchange`.
+- Test price source isolation: PASS. `fixture_price` and `test` are disabled outside tests unless `PYTEST_CURRENT_TEST`, `APP_ENV=test`, or `ALLOW_TEST_DATA_SOURCES=true` is present. Non-test calculations skip those sources and return `test_price_sources_disabled` when no real source remains.
 - Common TTM windows: PASS. FCF TTM, EBITDA TTM component fallback, ROIC tax components, PE TTM, and FCF Yield expose the selected four-quarter window and do not silently combine mismatched quarters.
 
 ## Data And Lineage

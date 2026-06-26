@@ -10,9 +10,10 @@ PASS means directly verified. FAIL means verified broken. BLOCKED means a requir
 
 - Stage 1: PASS locally from prior anti-shortcut gate.
 - Stage 2 final metric integrity: PASS locally pending pushed GitHub Actions.
-- Full Python tests: PASS; `PYTHONPATH=.:backend/src pytest -q`, 100 passed, covering root `tests/` and `backend/tests/`.
+- Full Python tests: PASS; `PYTHONPATH=.:backend/src pytest -q`, 108 passed, covering root `tests/` and `backend/tests/`.
 - Python type check: PASS; `PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch`, 79 files, 0 errors. `python -m compileall` is not counted as a type check.
-- Final commit SHA: see Git HEAD and final checkpoint output after this document commit.
+- Stage 2 final-fix baseline HEAD: `6796ad8779ac911740ac9f6e75644b95dccad550`.
+- Stage 2 final-fix baseline origin/main: `6796ad8779ac911740ac9f6e75644b95dccad550`.
 - GitHub Actions: UNVERIFIED until the final commit is pushed and queried.
 - Alembic: PASS locally. Revision `0003_professional_metric_metadata.py` uses explicit column operations and downgrade; SQLite empty, current PostgreSQL, and temporary empty PostgreSQL upgrades all passed.
 - Security: PASS for required gates. tracked-secret-file-check is PASS but remains only a grep-style check and is not a complete security scan; detect-secrets is PASS with 0 findings.
@@ -54,6 +55,15 @@ PASS means directly verified. FAIL means verified broken. BLOCKED means a requir
 | Beta | cov(stock, benchmark) / var(benchmark) | aligned stock and benchmark returns | inner join by trade date | n/a | insufficient history or zero benchmark variance returns null | `backend/tests/test_price_analytics.py` | PASS |
 | Alpha | Jensen annualized alpha | aligned returns, beta, risk-free rate | inner joined sample | n/a | propagates beta missing reason; assumptions recorded | `backend/tests/test_price_analytics.py` | PASS |
 
+## Legacy Metric Lineage And Period Compatibility
+
+- Legacy fallback metrics in `MetricCalculationService` preserve typed `FinancialPeriod` context instead of using a flattened context-free matrix for API results.
+- Successful legacy financial metrics expose actual participating `source_fact_ids`, `source_urls`, `input_values`, `period_start`, `period_end`, `as_of`, and formula version.
+- Gross margin and current ratio lineage is limited to the exact same-period numerator and denominator facts.
+- ROE, ROA, asset turnover, equity multiplier, receivable days, inventory days, payable days, and Cash Conversion Cycle require a compatible prior period ending immediately before the latest period starts. Average-balance lineage includes both beginning and ending balance fact IDs.
+- Currency mismatch returns `currency_mismatch`; missing compatible prior report type, statement scope, consolidation basis, flow basis, or period boundary returns `missing_compatible_prior_period`.
+- API regression coverage requires successful financial metrics to have non-empty `source_fact_ids` when their inputs are database financial facts, and verifies `strict_as_of` does not expose future publication-period facts.
+
 ## Period Normalization Audit
 
 - Cumulative quarter conversion: PASS.
@@ -73,7 +83,8 @@ PASS means directly verified. FAIL means verified broken. BLOCKED means a requir
 
 - Canonical price selection: PASS. `MetricCalculationService` selects one symbol, one configured adjustment type, and one data source before invoking professional valuation metrics or `PriceAnalyticsService`.
 - Adjustment policy: PASS. China stock adjustment type is read from `CN_STOCK_ADJUSTMENT_TYPE`, default `qfq`.
-- Source policy: PASS. Source priority is read from `PRICE_SOURCE_PRIORITY`, default `local_prices,akshare,exchange,fixture_price,test`; multiple sources on the same date are resolved by that priority without deleting stored records.
+- Source policy: PASS. Source priority is read from `PRICE_SOURCE_PRIORITY`, default `local_prices,akshare,exchange`; multiple sources on the same date are resolved by that priority without deleting stored records.
+- Test source isolation: PASS. `fixture_price` and `test` are blocked in production selection unless `PYTEST_CURRENT_TEST`, `APP_ENV=test`, or `ALLOW_TEST_DATA_SOURCES=true` is set. If only blocked sources exist, price metrics return `test_price_sources_disabled`; if real and fixture sources coexist in production, the real source is selected.
 - Validation: PASS. Mixed symbols, mixed adjustment types, mixed selected sources, duplicate trade dates within the selected source, zero close, and negative close return missing/ambiguous states instead of calculated values.
 
 ## API And Frontend Audit

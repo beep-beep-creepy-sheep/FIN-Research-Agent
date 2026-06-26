@@ -175,7 +175,13 @@ def test_unified_metric_service_prefers_professional_results_over_legacy() -> No
         data_source="fixture",
         quality_status="verified",
         version=1,
-        fact_ids_by_metric={"net_profit_parent": (1,), "cash_and_equivalents": (2,), "interest_bearing_debt": (3,)},
+        fact_ids_by_metric={
+            "revenue": (4,),
+            "gross_profit": (5,),
+            "net_profit_parent": (1,),
+            "cash_and_equivalents": (2,),
+            "interest_bearing_debt": (3,),
+        },
         source_urls_by_metric={},
         source_pages_by_metric={},
         values={
@@ -199,3 +205,181 @@ def test_unified_metric_service_prefers_professional_results_over_legacy() -> No
     assert by_code["net_debt"].formula_version == "2.0.0"
     assert by_code["gross_margin"].value == 0.4
     assert by_code["gross_margin"].formula_version == "1.0.0"
+
+
+def _financial_period(
+    *,
+    period_start: str,
+    period_end: str,
+    report_type: str = "annual",
+    statement_scope: str = "consolidated",
+    currency: str = "CNY",
+    values: dict[str, float],
+    fact_base: int,
+    publication_date: str = "2026-04-01",
+) -> FinancialPeriod:
+    return FinancialPeriod(
+        symbol="000001",
+        period_start=period_start,
+        period_end=period_end,
+        publication_date=publication_date,
+        report_type=report_type,
+        statement_type=None,
+        statement_scope=statement_scope,
+        is_consolidated=statement_scope == "consolidated",
+        currency=currency,
+        unit=currency,
+        data_source="fixture",
+        quality_status="verified",
+        version=1,
+        fact_ids_by_metric={code: (fact_base + index,) for index, code in enumerate(values, start=1)},
+        source_urls_by_metric={code: (f"https://issuer.example/{fact_base + index}",) for index, code in enumerate(values, start=1)},
+        source_pages_by_metric={},
+        values=values,
+        flow_basis="period",
+        is_cumulative=False,
+    )
+
+
+def test_legacy_financial_metrics_keep_actual_source_lineage() -> None:
+    previous = _financial_period(
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        values={
+            "total_equity": 100.0,
+            "accounts_receivable": 10.0,
+            "inventory": 8.0,
+            "accounts_payable": 6.0,
+        },
+        fact_base=100,
+        publication_date="2025-04-01",
+    )
+    latest = _financial_period(
+        period_start="2025-01-01",
+        period_end="2025-12-31",
+        values={
+            "revenue": 120.0,
+            "gross_profit": 54.0,
+            "net_profit": 24.0,
+            "total_equity": 120.0,
+            "current_assets": 80.0,
+            "current_liabilities": 40.0,
+            "accounts_receivable": 12.0,
+            "inventory": 10.0,
+            "accounts_payable": 8.0,
+            "cost_of_goods_sold": 66.0,
+        },
+        fact_base=200,
+    )
+
+    by_code = {
+        result.code: result
+        for result in MetricCalculationService().calculate(
+            CalculationContext(financial_periods=(previous, latest), currency="CNY"),
+            symbol="000001",
+        )
+    }
+
+    assert by_code["gross_margin"].source_fact_ids == (
+        latest.fact_ids_by_metric["gross_profit"][0],
+        latest.fact_ids_by_metric["revenue"][0],
+    )
+    assert by_code["gross_margin"].source_urls == (
+        latest.source_urls_by_metric["gross_profit"][0],
+        latest.source_urls_by_metric["revenue"][0],
+    )
+    assert by_code["current_ratio"].source_fact_ids == (
+        latest.fact_ids_by_metric["current_assets"][0],
+        latest.fact_ids_by_metric["current_liabilities"][0],
+    )
+    assert set(by_code["roe"].source_fact_ids) == {
+        latest.fact_ids_by_metric["net_profit"][0],
+        latest.fact_ids_by_metric["total_equity"][0],
+        previous.fact_ids_by_metric["total_equity"][0],
+    }
+    assert set(by_code["cash_conversion_cycle"].source_fact_ids) == {
+        latest.fact_ids_by_metric["accounts_receivable"][0],
+        latest.fact_ids_by_metric["inventory"][0],
+        latest.fact_ids_by_metric["accounts_payable"][0],
+        latest.fact_ids_by_metric["revenue"][0],
+        latest.fact_ids_by_metric["cost_of_goods_sold"][0],
+        previous.fact_ids_by_metric["accounts_receivable"][0],
+        previous.fact_ids_by_metric["inventory"][0],
+        previous.fact_ids_by_metric["accounts_payable"][0],
+    }
+    successful_financial = [
+        result
+        for result in by_code.values()
+        if result.value is not None and not result.source_price_ids and result.code not in {"revenue_ttm", "net_profit_ttm"}
+    ]
+    assert all(result.source_fact_ids for result in successful_financial)
+
+
+def test_legacy_financial_metrics_do_not_mix_incompatible_periods() -> None:
+    latest = _financial_period(
+        period_start="2025-01-01",
+        period_end="2025-12-31",
+        values={"net_profit": 24.0, "total_equity": 120.0},
+        fact_base=300,
+    )
+    quarterly_previous = _financial_period(
+        period_start="2024-10-01",
+        period_end="2024-12-31",
+        report_type="quarterly",
+        values={"total_equity": 100.0},
+        fact_base=400,
+    )
+    parent_previous = _financial_period(
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        statement_scope="parent",
+        values={"total_equity": 100.0},
+        fact_base=500,
+    )
+
+    annual_mixed = {
+        result.code: result
+        for result in MetricCalculationService().calculate(
+            CalculationContext(financial_periods=(quarterly_previous, latest), currency="CNY"),
+            symbol="000001",
+        )
+    }
+    scope_mixed = {
+        result.code: result
+        for result in MetricCalculationService().calculate(
+            CalculationContext(financial_periods=(parent_previous, latest), currency="CNY"),
+            symbol="000001",
+        )
+    }
+
+    assert annual_mixed["roe"].missing_reason == "missing_compatible_prior_period"
+    assert scope_mixed["roe"].missing_reason == "missing_compatible_prior_period"
+
+
+def test_legacy_financial_metrics_reject_currency_mismatch() -> None:
+    latest = _financial_period(
+        period_start="2025-01-01",
+        period_end="2025-12-31",
+        currency="USD",
+        values={"revenue": 120.0, "gross_profit": 54.0},
+        fact_base=600,
+    )
+    previous = _financial_period(
+        period_start="2024-01-01",
+        period_end="2024-12-31",
+        currency="CNY",
+        values={"revenue": 100.0, "gross_profit": 40.0},
+        fact_base=700,
+        publication_date="2025-04-01",
+    )
+
+    by_code = {
+        result.code: result
+        for result in MetricCalculationService().calculate(
+            CalculationContext(financial_periods=(previous, latest), currency="USD"),
+            symbol="000001",
+        )
+    }
+
+    assert by_code["gross_margin"].value is None
+    assert by_code["gross_margin"].missing_reason == "currency_mismatch"

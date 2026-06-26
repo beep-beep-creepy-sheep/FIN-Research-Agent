@@ -126,6 +126,73 @@ def test_company_chart_alias_endpoint(tmp_path, monkeypatch) -> None:
     assert response.json()[0]["id"] == "kline_volume"
 
 
+def test_metrics_api_successful_financial_results_have_fact_lineage_and_strict_as_of(tmp_path, monkeypatch) -> None:
+    from app.models import FinancialFact
+    from finresearch.metrics import list_metric_definitions
+    from finresearch.repositories.financial_facts import FinancialFactRepository
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'library.sqlite'}")
+
+    def fact(
+        metric_code: str,
+        metric_name: str,
+        value: float,
+        period_start: str,
+        period_end: str,
+        publication_date: str,
+        statement_type: str,
+    ) -> FinancialFact:
+        return FinancialFact(
+            symbol="600519",
+            metric_code=metric_code,
+            metric_name=metric_name,
+            value=value,
+            period_start=period_start,
+            period_end=period_end,
+            publication_date=publication_date,
+            report_type="annual",
+            statement_type=statement_type,
+            is_consolidated=True,
+            source_url=f"https://issuer.example/{period_end}/{metric_code}",
+            data_source="fixture",
+            retrieved_at="2026-06-26T00:00:00+00:00",
+        )
+
+    FinancialFactRepository().upsert_many(
+        [
+            fact("total_equity", "所有者权益", 100.0, "2024-01-01", "2024-12-31", "2025-04-01", "balance_sheet"),
+            fact("revenue", "营业收入", 120.0, "2025-01-01", "2025-12-31", "2026-04-01", "profit_sheet"),
+            fact("gross_profit", "毛利润", 54.0, "2025-01-01", "2025-12-31", "2026-04-01", "profit_sheet"),
+            fact("net_profit", "净利润", 24.0, "2025-01-01", "2025-12-31", "2026-04-01", "profit_sheet"),
+            fact("total_equity", "所有者权益", 120.0, "2025-01-01", "2025-12-31", "2026-04-01", "balance_sheet"),
+            fact("current_assets", "流动资产", 80.0, "2025-01-01", "2025-12-31", "2026-04-01", "balance_sheet"),
+            fact("current_liabilities", "流动负债", 40.0, "2025-01-01", "2025-12-31", "2026-04-01", "balance_sheet"),
+            fact("revenue", "营业收入", 999.0, "2026-01-01", "2026-12-31", "2027-04-01", "profit_sheet"),
+            fact("gross_profit", "毛利润", 999.0, "2026-01-01", "2026-12-31", "2027-04-01", "profit_sheet"),
+        ]
+    )
+    client = TestClient(app)
+
+    response = client.get("/v1/companies/600519/metrics?as_of=2026-06-26")
+
+    assert response.status_code == 200
+    definitions = {definition.code: definition for definition in list_metric_definitions()}
+    successful_financial = [
+        item
+        for item in response.json()
+        if definitions[item["code"]].calculation_domain == "financial" and item["value"] is not None
+    ]
+    assert successful_financial
+    assert all(item["source_fact_ids"] for item in successful_financial)
+    gross_margin = next(item for item in successful_financial if item["code"] == "gross_margin")
+    assert gross_margin["period_end"] == "2025-12-31"
+    assert gross_margin["source_urls"] == [
+        "https://issuer.example/2025-12-31/gross_profit",
+        "https://issuer.example/2025-12-31/revenue",
+    ]
+
+
 def test_screener_query_uses_local_financial_facts(tmp_path, monkeypatch) -> None:
     from app.models import CompanyRecord, FinancialFact
     from finresearch.repositories.companies import CompanyRepository

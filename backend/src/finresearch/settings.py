@@ -28,8 +28,6 @@ class Settings:
         "local_prices",
         "akshare",
         "exchange",
-        "fixture_price",
-        "test",
     )
 
     @classmethod
@@ -62,7 +60,7 @@ class Settings:
                 item.strip()
                 for item in os.getenv(
                     "PRICE_SOURCE_PRIORITY",
-                    "local_prices,akshare,exchange,fixture_price,test",
+                    "local_prices,akshare,exchange",
                 ).split(",")
                 if item.strip()
             ),
