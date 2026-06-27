@@ -8,6 +8,7 @@ from finresearch.api.dependencies import library_path
 from finresearch.repositories.companies import CompanyRepository
 from finresearch.services.company_analysis import CompanyAnalysisService
 from finresearch.services.company_charts import CompanyChartService
+from finresearch.services.benchmark_selection import BenchmarkSelectionService
 
 
 router = APIRouter()
@@ -56,3 +57,8 @@ def get_company_chart_alias(
     db_path: Path = Depends(library_path),
 ) -> list[dict[str, object]]:
     return CompanyChartService(db_path).build(symbol, years=years)
+
+
+@router.get("/{symbol}/benchmark")
+def get_company_benchmark(symbol: str) -> dict[str, object]:
+    return BenchmarkSelectionService().select_for_symbol(symbol)

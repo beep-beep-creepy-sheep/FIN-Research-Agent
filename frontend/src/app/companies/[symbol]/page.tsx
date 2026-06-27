@@ -1,16 +1,37 @@
 import { Card } from "@/components/Card";
 import { EChartPanel } from "@/charts/EChartPanel";
-import { getCompanyCharts, getCompanySummary, type MarketChart } from "@/lib/api";
+import {
+  getCompanyBenchmark,
+  getCompanyCharts,
+  getCompanyFilings,
+  getCompanySummary,
+  getDataQualityIssues,
+  getDataQualitySummary,
+  type FilingRecord,
+  type MarketChart,
+} from "@/lib/api";
 import { SyncButton } from "@/features/SyncButton";
 import { ResearchRuns } from "@/features/ResearchRuns";
+import { FilingSyncButton } from "@/features/FilingSyncButton";
 
 export default async function CompanyPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
   let summary = null;
   let charts: MarketChart[] = [];
+  let filings: FilingRecord[] = [];
+  let benchmark: Record<string, unknown> | null = null;
+  let qualitySummary: Record<string, unknown> | null = null;
+  let qualityIssues: Array<Record<string, unknown>> = [];
   let error = "";
   try {
-    [summary, charts] = await Promise.all([getCompanySummary(symbol), getCompanyCharts(symbol)]);
+    [summary, charts, filings, benchmark, qualitySummary, qualityIssues] = await Promise.all([
+      getCompanySummary(symbol),
+      getCompanyCharts(symbol),
+      getCompanyFilings(symbol),
+      getCompanyBenchmark(symbol),
+      getDataQualitySummary(),
+      getDataQualityIssues(),
+    ]);
   } catch (exc) {
     error = exc instanceof Error ? exc.message : "Unable to load company";
   }
@@ -113,6 +134,80 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
             ) : null}
           </div>
         </Card>
+        <Card title="公告 / Filings">
+          <div className="mb-3">
+            <FilingSyncButton symbol={symbol} />
+          </div>
+          {filings.length ? (
+            <div className="max-h-96 space-y-2 overflow-auto text-sm">
+              {filings.map((filing) => (
+                <div key={filing.id} className="rounded border border-line bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-medium text-slate-900">{filing.title ?? "Untitled filing"}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {filing.filing_type ?? "unknown"} · {filing.report_period ?? "period missing"} ·{" "}
+                        {filing.publication_date ?? "publication date missing"}
+                      </div>
+                    </div>
+                    <span className="rounded border border-line bg-white px-2 py-1 text-xs text-slate-600">
+                      {filing.source_id ?? "unknown"}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <StatusPill label="source" value={filing.source_tier ?? "unknown"} />
+                    <StatusPill label="download" value={filing.download_status ?? "pending"} />
+                    <StatusPill label="parse" value={filing.parse_status ?? "pending"} />
+                  </div>
+                  {filing.error_message ? <p className="mt-2 text-xs text-risk">{filing.error_message}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="没有公告记录。点击同步会创建后台任务；真实下载和解析由 worker 执行。" />
+          )}
+        </Card>
+        <Card title="Benchmark">
+          {benchmark ? (
+            <KeyValueGrid
+              items={[
+                ["基准代码", benchmark.benchmark_code ?? "未配置"],
+                ["基准名称", benchmark.benchmark_name ?? "未配置"],
+                ["选择来源", benchmark.benchmark_source ?? "unknown"],
+                ["选择原因", benchmark.selection_reason ?? "unknown"],
+                ["缺失原因", benchmark.missing_reason ?? "无"],
+              ]}
+            />
+          ) : (
+            <EmptyState text="基准选择信息暂不可用。" />
+          )}
+        </Card>
+        <Card title="数据质量">
+          <div className="space-y-3">
+            <KeyValueGrid
+              items={[
+                ["Open issues", qualitySummary?.open_count ?? 0],
+                ["By severity", compactJson(qualitySummary?.by_severity)],
+                ["By source", compactJson(qualitySummary?.by_source)],
+                ["By type", compactJson(qualitySummary?.by_type)],
+              ]}
+            />
+            {qualityIssues.length ? (
+              <ul className="space-y-2 text-sm">
+                {qualityIssues.map((issue) => (
+                  <li key={String(issue.id)} className="rounded border border-line bg-slate-50 p-3">
+                    <span className="font-medium">{String(issue.issue_type)}</span>
+                    <span className="ml-2 text-xs text-slate-500">
+                      {String(issue.severity)} · {String(issue.status)} · {String(issue.source_id ?? "unknown")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState text="当前没有数据质量问题；这也可能表示还没有运行官方公告同步。" />
+            )}
+          </div>
+        </Card>
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -121,6 +216,15 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
         ))}
       </div>
     </main>
+  );
+}
+
+function StatusPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-line bg-white px-2 py-1">
+      <div className="text-[11px] uppercase text-slate-500">{label}</div>
+      <div className="font-medium text-slate-800">{value}</div>
+    </div>
   );
 }
 
@@ -171,6 +275,11 @@ function formatValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "等待同步";
   if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString("zh-CN") : "无数据";
   if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function compactJson(value: unknown) {
+  if (!value || (typeof value === "object" && Object.keys(value).length === 0)) return "无";
   return JSON.stringify(value);
 }
 

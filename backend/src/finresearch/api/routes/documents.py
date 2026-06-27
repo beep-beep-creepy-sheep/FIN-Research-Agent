@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from shutil import copyfileobj
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from finresearch.api.dependencies import library_path
@@ -24,6 +24,19 @@ class SearchRequest(BaseModel):
 @router.get("")
 def list_documents(db_path: Path = Depends(library_path)) -> list[dict[str, object]]:
     return DocumentRepository(db_path).list()
+
+
+@router.get("/{document_id}")
+def get_document(document_id: int, db_path: Path = Depends(library_path)) -> dict[str, object]:
+    document = DocumentRepository(db_path).get(document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail={"code": "document_not_found"})
+    return document
+
+
+@router.get("/{document_id}/chunks")
+def get_document_chunks(document_id: int, db_path: Path = Depends(library_path)) -> list[dict[str, object]]:
+    return DocumentRepository(db_path).chunks(document_id)
 
 
 @router.post("/upload")
