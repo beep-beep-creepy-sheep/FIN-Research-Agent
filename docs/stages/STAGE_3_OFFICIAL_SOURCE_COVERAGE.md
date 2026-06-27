@@ -1,6 +1,6 @@
 # Stage 3: Official Source Coverage
 
-Updated: 2026-06-26
+Updated: 2026-06-27
 
 ## Goal
 
@@ -15,8 +15,9 @@ Build the official data, filing, document-provenance, and source-coverage layer 
 ## Current Ability
 
 - Fixture-verified official source registry for CNINFO, SSE, SZSE, BSE, and optional SEC EDGAR definition.
+- CNINFO live adapter for official listing/metadata normalization when `OFFICIAL_SOURCE_MODE=live` and `RUN_LIVE_SOURCE_TESTS=true`.
 - Filing metadata upsert with source tier, verification status, hash, archive path, and parse status.
-- Secure artifact archive service with URL allowlist, private IP blocking, size limit, SHA-256, temp files, and atomic move.
+- Secure artifact archive and HTTP download service with redirect revalidation, URL allowlist, private IP blocking, streaming size limit, SHA-256, temp files, and atomic move.
 - Page-aware parsing for PDF/text-like artifacts with deterministic chunks and parser version.
 - Data-quality issue repository and API.
 - Company benchmark auto-selection from exchange and board.
@@ -25,11 +26,11 @@ Build the official data, filing, document-provenance, and source-coverage layer 
 
 | Source | Tier | Markets | Exchanges | Listing | Download | Parse | Live smoke |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CNINFO | official | CN-A | SSE/SZSE/BSE | fixture verified | fixture verified | fixture verified | NOT_RUN |
-| SSE | exchange | CN-A | SSE | fixture verified | fixture verified | fixture verified | NOT_RUN |
-| SZSE | exchange | CN-A | SZSE | fixture verified | fixture verified | fixture verified | NOT_RUN |
-| BSE | exchange | CN-A | BSE | fixture verified | fixture verified | fixture verified | NOT_RUN |
-| SEC EDGAR | regulator | US | NYSE/NASDAQ/AMEX | defined | defined | defined | NOT_RUN |
+| CNINFO | official | CN-A | SSE/SZSE/BSE | fixture verified + live listing PASS | fixture verified | fixture verified | PASS listing |
+| SSE | exchange | CN-A | SSE | fixture verified | fixture verified | fixture verified | NOT_IMPLEMENTED |
+| SZSE | exchange | CN-A | SZSE | fixture verified | fixture verified | fixture verified | NOT_IMPLEMENTED |
+| BSE | exchange | CN-A | BSE | fixture verified | fixture verified | fixture verified | NOT_IMPLEMENTED |
+| SEC EDGAR | regulator | US | NYSE/NASDAQ/AMEX | defined | defined | defined | NOT_IMPLEMENTED |
 
 ## Standard Data Contract
 
@@ -90,4 +91,4 @@ Tests use local fixtures or mocked services only. Coverage includes source adapt
 
 ## Known External Limits
 
-Live source smoke is intentionally disabled by default. Network blocks, anti-bot responses, and rate limits must be reported as blocked, not test pass.
+Live source smoke is intentionally disabled by default. On 2026-06-27, CNINFO live listing returned PASS for symbol `600519`; exchange and SEC live adapters remain not implemented. Network blocks, anti-bot responses, and rate limits must be reported as blocked, not test pass.

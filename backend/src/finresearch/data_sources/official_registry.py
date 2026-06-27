@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from finresearch.data_sources.official import FixtureOfficialSourceAdapter, OfficialSourceDefinition
+from finresearch.data_sources.cninfo_live import CNInfoLiveSourceAdapter
+from finresearch.data_sources.official import (
+    FixtureOfficialSourceAdapter,
+    OfficialSourceAdapter,
+    OfficialSourceDefinition,
+    SourceAdapterError,
+)
+from finresearch.settings import get_settings
 
 
 CNINFO_DEFINITION = OfficialSourceDefinition(
@@ -146,12 +153,48 @@ class OfficialSourceRegistry:
     def get_definition(self, source_id: str) -> OfficialSourceDefinition | None:
         return self._definitions.get(source_id)
 
-    def get_adapter(self, source_id: str) -> FixtureOfficialSourceAdapter:
+    def get_fixture_adapter(self, source_id: str) -> FixtureOfficialSourceAdapter:
         definition = self._definitions[source_id]
         return FixtureOfficialSourceAdapter(definition, _FIXTURES.get(source_id, []))
 
-    def list_adapters(self) -> list[FixtureOfficialSourceAdapter]:
-        return [self.get_adapter(source_id) for source_id in self._definitions]
+    def get_live_adapter(self, source_id: str) -> OfficialSourceAdapter:
+        definition = self._definitions[source_id]
+        if source_id == "cninfo":
+            return CNInfoLiveSourceAdapter(definition)
+        raise SourceAdapterError(
+            f"live_adapter_not_implemented:{source_id}",
+            status="not_configured",
+            error_type="live_adapter_not_implemented",
+            blocked_reason="not_implemented",
+        )
+
+    def get_adapter(self, source_id: str, mode: str | None = None) -> OfficialSourceAdapter:
+        settings = get_settings()
+        selected_mode = (mode or settings.official_source_mode).lower()
+        if not settings.official_sources_enabled or selected_mode == "disabled":
+            raise SourceAdapterError(
+                "official_sources_disabled",
+                status="disabled",
+                error_type="official_sources_disabled",
+            )
+        if selected_mode == "live":
+            return self.get_live_adapter(source_id)
+        if selected_mode == "fixture":
+            if settings.database_url.startswith("sqlite") or settings.allow_fixture_official_sources:
+                return self.get_fixture_adapter(source_id)
+            raise SourceAdapterError(
+                "fixture_sources_not_allowed",
+                status="not_configured",
+                error_type="fixture_sources_not_allowed",
+            )
+        raise SourceAdapterError(
+            f"unsupported_official_source_mode:{selected_mode}",
+            status="not_configured",
+            error_type="unsupported_official_source_mode",
+        )
+
+    def list_adapters(self, mode: str | None = None) -> list[OfficialSourceAdapter]:
+        return [self.get_adapter(source_id, mode=mode) for source_id in self._definitions]
 
 
 def source_coverage_matrix() -> list[dict[str, object]]:
@@ -176,6 +219,7 @@ def source_coverage_matrix() -> list[dict[str, object]]:
                 "page_lineage": True,
                 "live_smoke": "NOT_RUN",
                 "fixture_contract_tests": definition.source_id != "sec_edgar",
+                "live_adapter": definition.source_id == "cninfo",
             }
         )
     return rows

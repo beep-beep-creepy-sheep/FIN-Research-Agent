@@ -106,6 +106,24 @@ class FilingRepository:
             filing = session.get(Filing, filing_id)
             return _filing_dict(filing) if filing else None
 
+    def get_internal(self, filing_id: int) -> dict[str, object] | None:
+        with session_scope() as session:
+            filing = session.get(Filing, filing_id)
+            if filing is None:
+                return None
+            data = _filing_dict(filing)
+            data.update(
+                {
+                    "local_path": filing.local_path,
+                    "raw_metadata_path": filing.raw_metadata_path,
+                    "language": filing.language,
+                    "published_at": filing.published_at,
+                    "period_start": filing.period_start,
+                    "period_end": filing.period_end,
+                }
+            )
+            return data
+
     def update_download(
         self,
         filing_id: int,
@@ -128,6 +146,25 @@ class FilingRepository:
             filing.content_type = content_type
             filing.content_length = content_length
             filing.download_status = status
+            filing.error_type = None
+            filing.error_message = None
+            filing.last_attempt_at = datetime.now(UTC).isoformat()
+
+    def update_download_failure(
+        self,
+        filing_id: int,
+        *,
+        error_type: str,
+        error_message: str,
+        status: str = "failed",
+    ) -> None:
+        with session_scope() as session:
+            filing = session.get(Filing, filing_id)
+            if filing is None:
+                return
+            filing.download_status = status
+            filing.error_type = error_type
+            filing.error_message = error_message
             filing.last_attempt_at = datetime.now(UTC).isoformat()
 
     def update_parse_status(self, filing_id: int, status: str, error: str | None = None) -> None:
@@ -136,6 +173,7 @@ class FilingRepository:
             if filing is None:
                 return
             filing.parse_status = status
+            filing.error_type = None if error is None else filing.error_type
             filing.error_message = error
             filing.last_attempt_at = datetime.now(UTC).isoformat()
 

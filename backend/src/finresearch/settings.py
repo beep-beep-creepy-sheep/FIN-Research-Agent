@@ -23,6 +23,13 @@ class Settings:
     openai_model: str = "gpt-5.5"
     agent_reach_enabled: bool = False
     exa_enabled: bool = False
+    official_sources_enabled: bool = True
+    official_source_mode: str = "fixture"
+    allow_fixture_official_sources: bool = False
+    run_live_source_tests: bool = False
+    official_source_request_timeout_seconds: float = 10.0
+    official_source_read_timeout_seconds: float = 30.0
+    official_source_rate_limit_per_second: float = 0.5
     cn_stock_adjustment_type: str = "qfq"
     price_source_priority: tuple[str, ...] = (
         "local_prices",
@@ -38,6 +45,9 @@ class Settings:
             "DATABASE_URL",
             f"sqlite:///{data_dir / 'finresearch.sqlite'}",
         )
+        official_mode = os.getenv("OFFICIAL_SOURCE_MODE")
+        if official_mode is None:
+            official_mode = "disabled" if os.getenv("APP_ENV", "").lower() == "production" else "fixture"
         return cls(
             database_url=database_url,
             data_dir=data_dir,
@@ -55,6 +65,20 @@ class Settings:
             openai_model=os.getenv("OPENAI_MODEL", "gpt-5.5").strip() or "gpt-5.5",
             agent_reach_enabled=os.getenv("AGENT_REACH_ENABLED", "false").lower() == "true",
             exa_enabled=os.getenv("EXA_ENABLED", "false").lower() == "true",
+            official_sources_enabled=os.getenv("OFFICIAL_SOURCES_ENABLED", "true").lower() == "true",
+            official_source_mode=official_mode.strip().lower(),
+            allow_fixture_official_sources=os.getenv("ALLOW_FIXTURE_OFFICIAL_SOURCES", "false").lower()
+            == "true",
+            run_live_source_tests=os.getenv("RUN_LIVE_SOURCE_TESTS", "false").lower() == "true",
+            official_source_request_timeout_seconds=float(
+                os.getenv("OFFICIAL_SOURCE_REQUEST_TIMEOUT_SECONDS", "10")
+            ),
+            official_source_read_timeout_seconds=float(
+                os.getenv("OFFICIAL_SOURCE_READ_TIMEOUT_SECONDS", "30")
+            ),
+            official_source_rate_limit_per_second=float(
+                os.getenv("OFFICIAL_SOURCE_RATE_LIMIT_PER_SECOND", "0.5")
+            ),
             cn_stock_adjustment_type=os.getenv("CN_STOCK_ADJUSTMENT_TYPE", "qfq").strip().lower() or "qfq",
             price_source_priority=tuple(
                 item.strip()

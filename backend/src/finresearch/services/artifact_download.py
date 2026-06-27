@@ -8,7 +8,9 @@ import socket
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
+
+import requests
 
 from finresearch.data_sources.official import DownloadedArtifact, FilingMetadata
 from finresearch.settings import get_settings
@@ -26,6 +28,57 @@ class ArtifactDownloadService:
         self.limits = DownloadLimits(
             max_bytes=max_bytes or int(os.getenv("OFFICIAL_SOURCE_MAX_DOWNLOAD_BYTES", "52428800"))
         )
+
+    def download_from_url(
+        self,
+        metadata: FilingMetadata,
+        *,
+        allowed_domains: tuple[str, ...],
+        session: requests.Session | None = None,
+        conditional_headers: dict[str, str] | None = None,
+    ) -> DownloadedArtifact:
+        url = metadata.download_url or metadata.canonical_url
+        client = session or requests.Session()
+        redirects = 0
+        headers = {
+            "User-Agent": "FinResearchAgent/0.1 official-artifact-download",
+            "Accept": "application/pdf, text/html;q=0.8, */*;q=0.5",
+        }
+        if conditional_headers:
+            headers.update(conditional_headers)
+        current_url = url
+        while True:
+            self.validate_url(current_url, allowed_domains)
+            response = client.get(
+                current_url,
+                headers=headers,
+                stream=True,
+                allow_redirects=False,
+                timeout=(
+                    float(os.getenv("OFFICIAL_SOURCE_REQUEST_TIMEOUT_SECONDS", "10")),
+                    float(os.getenv("OFFICIAL_SOURCE_READ_TIMEOUT_SECONDS", "30")),
+                ),
+            )
+            if response.status_code in {301, 302, 303, 307, 308}:
+                redirects += 1
+                if redirects > self.limits.max_redirects:
+                    response.close()
+                    raise ValueError("too_many_redirects")
+                location = response.headers.get("Location")
+                response.close()
+                if not location:
+                    raise ValueError("redirect_missing_location")
+                current_url = urljoin(current_url, location)
+                continue
+            if response.status_code >= 400:
+                response.close()
+                raise ValueError(f"http_download_failed:{response.status_code}")
+            return self._archive_response_stream(
+                metadata,
+                response,
+                final_url=current_url,
+                allowed_domains=allowed_domains,
+            )
 
     def archive_bytes(
         self,
@@ -111,9 +164,99 @@ class ArtifactDownloadService:
                 or ip.is_link_local
                 or ip.is_multicast
                 or ip.is_reserved
+                or ip.is_unspecified
                 or str(ip) == "169.254.169.254"
             ):
                 raise ValueError("blocked_private_or_metadata_ip")
+
+    def _archive_response_stream(
+        self,
+        metadata: FilingMetadata,
+        response: requests.Response,
+        *,
+        final_url: str,
+        allowed_domains: tuple[str, ...],
+    ) -> DownloadedArtifact:
+        self.validate_url(final_url, allowed_domains)
+        symbol = metadata.symbol.replace(".", "_")
+        year = (metadata.publication_date or "unknown")[:4]
+        safe_document_id = _safe_segment(metadata.source_document_id)
+        raw_dir = self.settings.raw_data_dir / metadata.source_id / symbol / year / safe_document_id
+        doc_dir = self.settings.documents_dir / metadata.source_id / symbol / year
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        doc_dir.mkdir(parents=True, exist_ok=True)
+
+        digest = hashlib.sha256()
+        total = 0
+        prefix = b""
+        fd, tmp_name = tempfile.mkstemp(prefix=".download.", dir=str(doc_dir))
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                for chunk in response.iter_content(chunk_size=65536):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > self.limits.max_bytes:
+                        raise ValueError("download_too_large")
+                    if len(prefix) < 512:
+                        prefix += chunk[: 512 - len(prefix)]
+                    digest.update(chunk)
+                    handle.write(chunk)
+                handle.flush()
+                os.fsync(handle.fileno())
+
+            if _looks_like_html(prefix):
+                raise ValueError("html_error_page")
+            if (metadata.document_type or "").lower() == "pdf" and not prefix.startswith(b"%PDF"):
+                raise ValueError("invalid_pdf_magic")
+            sha256 = digest.hexdigest()
+            suffix = ".pdf" if prefix.startswith(b"%PDF") else ".bin"
+            final_path = doc_dir / f"{sha256}{suffix}"
+            reused = final_path.exists()
+            if reused:
+                Path(tmp_name).unlink(missing_ok=True)
+            else:
+                os.replace(tmp_name, final_path)
+            raw_metadata_path = raw_dir / "metadata.json"
+            content_type = response.headers.get("Content-Type", "application/octet-stream")
+            raw_metadata_path.write_text(
+                json.dumps(
+                    {
+                        "source_id": metadata.source_id,
+                        "source_document_id": metadata.source_document_id,
+                        "canonical_url": metadata.canonical_url,
+                        "download_url": metadata.download_url,
+                        "final_url": final_url,
+                        "status_code": response.status_code,
+                        "headers": _safe_headers(response.headers),
+                        "etag": response.headers.get("ETag"),
+                        "last_modified": response.headers.get("Last-Modified"),
+                        "content_length_header": response.headers.get("Content-Length"),
+                        "content_type": content_type,
+                        "content_length": total,
+                        "sha256": sha256,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            return DownloadedArtifact(
+                source_id=metadata.source_id,
+                source_document_id=metadata.source_document_id,
+                final_path=final_path,
+                raw_metadata_path=raw_metadata_path,
+                sha256=sha256,
+                content_type=content_type,
+                content_length=total,
+                file_magic=prefix[:8].decode("latin1", errors="ignore"),
+                reused=reused,
+            )
+        finally:
+            response.close()
+            tmp_path = Path(tmp_name)
+            if tmp_path.exists():
+                tmp_path.unlink()
 
 
 def _safe_segment(value: str) -> str:
@@ -122,3 +265,17 @@ def _safe_segment(value: str) -> str:
     if not cleaned:
         raise ValueError("unsafe_path_segment")
     return cleaned[:160]
+
+
+def _looks_like_html(prefix: bytes) -> bool:
+    stripped = prefix.lstrip().lower()
+    return stripped.startswith(b"<!doctype html") or stripped.startswith(b"<html")
+
+
+def _safe_headers(headers: requests.structures.CaseInsensitiveDict[str]) -> dict[str, str]:
+    blocked = {"cookie", "set-cookie", "authorization", "proxy-authorization"}
+    return {
+        key: value
+        for key, value in headers.items()
+        if key.lower() not in blocked and key.lower() in {"content-type", "content-length", "etag", "last-modified"}
+    }
