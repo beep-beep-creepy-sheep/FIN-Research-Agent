@@ -18,8 +18,12 @@ class FinancialFactRepository:
     def upsert_many(self, facts: list[FinancialFact]) -> int:
         if not facts:
             return 0
+        blocked = {"community", "media", "xueqiu", "social", "agent_reach", "exa", "direct_web", "rss"}
         with session_scope() as session:
             for fact in facts:
+                if fact.data_source.lower() in blocked:
+                    raise ValueError("unofficial_source_cannot_write_financial_facts")
+                filing_id = getattr(fact, "filing_id", None)
                 company = session.scalar(select(Company).where(Company.symbol == fact.symbol))
                 if company is None:
                     company = Company(
@@ -62,6 +66,9 @@ class FinancialFactRepository:
                 saved.source_url = fact.source_url
                 saved.source_page = fact.source_page
                 saved.source_text = fact.source_text
+                saved.quality_status = "verified" if filing_id is not None and fact.source_url else "unverified"
+                saved.source_priority = 10 if filing_id is not None else 50
+                saved.filing_id = filing_id
                 saved.retrieved_at = fact.retrieved_at
         return len(facts)
 

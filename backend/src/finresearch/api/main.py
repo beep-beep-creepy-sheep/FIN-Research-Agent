@@ -7,8 +7,11 @@ from finresearch.api.routes import (
     companies,
     ai,
     connectors,
+    data_quality,
+    data_sources,
     documents,
     external_sources,
+    filings,
     financials,
     jobs,
     market,
@@ -42,6 +45,9 @@ app.include_router(screener.router, prefix="/v1/screener", tags=["screener"])
 app.include_router(screener.router, prefix="/v1/screens", tags=["screens"])
 app.include_router(connectors.router, prefix="/v1/connectors", tags=["connectors"])
 app.include_router(external_sources.router, prefix="/v1/external-sources", tags=["external-sources"])
+app.include_router(data_sources.router, prefix="/v1/data-sources", tags=["data-sources"])
+app.include_router(filings.router, prefix="/v1", tags=["filings"])
+app.include_router(data_quality.router, prefix="/v1/data-quality", tags=["data-quality"])
 
 
 @app.get("/health")

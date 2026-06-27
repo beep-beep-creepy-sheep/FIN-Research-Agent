@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List
 
 from sqlalchemy import or_, select
 
@@ -108,7 +109,57 @@ class DocumentRepository:
                     "report_period": row.report_period,
                     "publication_date": row.publication_date,
                     "file_hash": row.file_hash,
+                    "parser_version": row.parser_version,
+                    "page_count": row.page_count,
+                    "parse_status": row.parse_status,
+                    "parse_warnings": row.parse_warnings,
                     "chunks": len(row.chunks),
+                }
+                for row in rows
+            ]
+
+    def get(self, document_id: int) -> dict[str, object] | None:
+        with session_scope() as session:
+            row = session.get(Document, document_id)
+            if row is None:
+                return None
+            return {
+                "id": row.id,
+                "filing_id": row.filing_id,
+                "title": row.title,
+                "source_url": row.source_url,
+                "source_type": row.source_type,
+                "file_hash": row.file_hash,
+                "parser_version": row.parser_version,
+                "page_count": row.page_count,
+                "parse_status": row.parse_status,
+                "parse_warnings": row.parse_warnings or [],
+                "document_type": row.document_type,
+                "content_hash": row.content_hash,
+                "chunks": len(row.chunks),
+            }
+
+    def chunks(self, document_id: int) -> List[dict[str, object]]:
+        with session_scope() as session:
+            rows = session.scalars(
+                select(DocumentChunk)
+                .where(DocumentChunk.document_id == document_id)
+                .order_by(DocumentChunk.chunk_index)
+            ).all()
+            return [
+                {
+                    "id": row.id,
+                    "document_id": row.document_id,
+                    "filing_id": row.filing_id,
+                    "chunk_index": row.chunk_index,
+                    "page_number": row.page_number,
+                    "section": row.section,
+                    "start_char": row.start_char,
+                    "end_char": row.end_char,
+                    "text": row.text,
+                    "source_url": row.source_url,
+                    "parser_version": row.parser_version,
+                    "content_hash": row.content_hash,
                 }
                 for row in rows
             ]

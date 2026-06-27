@@ -63,6 +63,22 @@ export type MarketOverview = {
   empty: boolean;
 };
 
+export type FilingRecord = {
+  id: number;
+  title?: string | null;
+  filing_type?: string | null;
+  report_period?: string | null;
+  publication_date?: string | null;
+  source_id?: string | null;
+  source_tier?: string | null;
+  verification_status?: string | null;
+  download_status?: string | null;
+  parse_status?: string | null;
+  canonical_url?: string | null;
+  sha256?: string | null;
+  error_message?: string | null;
+};
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -148,4 +164,27 @@ export function queryScreener(filters: Record<string, unknown>): Promise<Record<
     method: "POST",
     body: JSON.stringify(filters),
   });
+}
+
+export function getCompanyFilings(symbol: string): Promise<FilingRecord[]> {
+  return fetchJson<FilingRecord[]>(`/v1/companies/${symbol}/filings`);
+}
+
+export function createOfficialFilingSyncJob(symbol: string): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(`/v1/companies/${symbol}/filings/sync`, {
+    method: "POST",
+    body: JSON.stringify({ source_ids: ["cninfo", "sse", "szse", "bse"], download: true, parse: true }),
+  });
+}
+
+export function getCompanyBenchmark(symbol: string): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(`/v1/companies/${symbol}/benchmark`);
+}
+
+export function getDataQualitySummary(): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>("/v1/data-quality/summary");
+}
+
+export function getDataQualityIssues(): Promise<Array<Record<string, unknown>>> {
+  return fetchJson<Array<Record<string, unknown>>>("/v1/data-quality/issues?limit=10");
 }

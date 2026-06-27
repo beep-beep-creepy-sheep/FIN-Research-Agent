@@ -4,7 +4,9 @@ from pathlib import Path
 
 from finresearch.repositories.jobs import JobRepository
 from finresearch.services.company_sync import SyncCompanyService
+from finresearch.services.filing_document_parser import FilingDocumentParser
 from finresearch.services.market_snapshot import MarketSnapshotService
+from finresearch.services.official_filings import OfficialFilingService
 from finresearch.services.research_service import ResearchService
 
 
@@ -32,6 +34,34 @@ class JobService:
         if recent:
             return recent
         return self.repository.create("market_snapshot", payload)
+
+    def create_official_filing_sync_job(
+        self,
+        symbol: str,
+        *,
+        source_ids: list[str] | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        download: bool = True,
+        parse: bool = True,
+    ) -> dict[str, object]:
+        payload = {
+            "symbol": symbol.upper(),
+            "source_ids": source_ids,
+            "start_date": start_date,
+            "end_date": end_date,
+            "download": download,
+            "parse": parse,
+        }
+        active = self.repository.find_active("sync_official_filings", payload)
+        if active:
+            return active
+        return self.repository.create("sync_official_filings", payload)
+
+    def create_filing_job(self, job_type: str, filing_id: int) -> dict[str, object]:
+        if job_type not in {"download_filing", "parse_filing", "reparse_document"}:
+            raise ValueError(f"unsupported_job_type:{job_type}")
+        return self.repository.create(job_type, {"filing_id": filing_id})
 
     def create_research_job(
         self,
@@ -75,6 +105,31 @@ class JobService:
                 )
                 market = str(payload.get("market", "CN"))
                 result = MarketSnapshotService().generate(market).__dict__
+            elif job["job_type"] == "sync_official_filings":
+                self.repository.update(
+                    job_id,
+                    status="running",
+                    progress=35,
+                    current_stage="listing_filings",
+                )
+                result = OfficialFilingService().sync(
+                    str(payload["symbol"]),
+                    source_ids=payload.get("source_ids"),
+                    start_date=payload.get("start_date"),
+                    end_date=payload.get("end_date"),
+                    download=bool(payload.get("download", True)),
+                    parse=bool(payload.get("parse", True)),
+                )
+            elif job["job_type"] in {"parse_filing", "reparse_document"}:
+                self.repository.update(
+                    job_id,
+                    status="running",
+                    progress=60,
+                    current_stage="parsing_documents",
+                )
+                result = FilingDocumentParser().parse_filing(int(payload["filing_id"]))
+            elif job["job_type"] == "download_filing":
+                raise ValueError("download_filing_requires_source_adapter_context")
             elif job["job_type"] == "research_run":
                 run_id = int(payload["research_run_id"])
                 ResearchService(self.library_path).research_repo.mark_running(run_id)

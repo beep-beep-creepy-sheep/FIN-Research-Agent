@@ -37,24 +37,60 @@ class Company(Base):
 
     facts: Mapped[list[FinancialFact]] = relationship(back_populates="company")
     prices: Mapped[list[Price]] = relationship(back_populates="company")
+    source_identifiers: Mapped[list[CompanySourceIdentifier]] = relationship(
+        back_populates="company"
+    )
 
 
 class Filing(Base):
     __tablename__ = "filings"
+    __table_args__ = (
+        UniqueConstraint("source_id", "source_document_id", name="uq_filing_source_document"),
+        UniqueConstraint("source_id", "canonical_url", name="uq_filing_source_canonical_url"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"))
+    symbol: Mapped[str | None] = mapped_column(String(32), index=True)
+    exchange: Mapped[str | None] = mapped_column(String(32))
+    source_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    source_document_id: Mapped[str | None] = mapped_column(String(255), index=True)
     filing_type: Mapped[str | None] = mapped_column(String(64))
+    document_type: Mapped[str | None] = mapped_column(String(64))
+    announcement_category: Mapped[str | None] = mapped_column(String(128))
     report_period: Mapped[str | None] = mapped_column(String(64))
+    period_start: Mapped[str | None] = mapped_column(String(32))
+    period_end: Mapped[str | None] = mapped_column(String(32))
     publication_date: Mapped[str | None] = mapped_column(String(32))
+    published_at: Mapped[str | None] = mapped_column(String(64))
     title: Mapped[str | None] = mapped_column(String(500))
     source_name: Mapped[str | None] = mapped_column(String(128))
+    canonical_url: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(Text)
+    download_url: Mapped[str | None] = mapped_column(Text)
+    original_filename: Mapped[str | None] = mapped_column(String(255))
+    language: Mapped[str | None] = mapped_column(String(32))
+    content_type: Mapped[str | None] = mapped_column(String(128))
+    content_length: Mapped[int | None] = mapped_column(Integer)
+    sha256: Mapped[str | None] = mapped_column(String(128), index=True)
+    etag: Mapped[str | None] = mapped_column(String(255))
+    last_modified: Mapped[str | None] = mapped_column(String(128))
     local_path: Mapped[str | None] = mapped_column(Text)
+    raw_metadata_path: Mapped[str | None] = mapped_column(Text)
     file_hash: Mapped[str | None] = mapped_column(String(128))
     download_status: Mapped[str | None] = mapped_column(String(64))
     parse_status: Mapped[str | None] = mapped_column(String(64))
+    verification_status: Mapped[str | None] = mapped_column(String(64), default="unverified")
+    source_tier: Mapped[str | None] = mapped_column(String(64), default="unknown")
+    retrieved_at: Mapped[str | None] = mapped_column(String(64))
+    last_attempt_at: Mapped[str | None] = mapped_column(String(64))
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_type: Mapped[str | None] = mapped_column(String(128))
+    error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    documents: Mapped[list[Document]] = relationship(back_populates="filing")
 
 
 class FinancialFact(Base):
@@ -149,8 +185,13 @@ class Document(Base):
     document_type: Mapped[str | None] = mapped_column(String(64))
     parse_status: Mapped[str | None] = mapped_column(String(64), default="parsed")
     metadata_json: Mapped[dict | None] = mapped_column(JSON)
+    parser_version: Mapped[str | None] = mapped_column(String(64))
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    parse_warnings: Mapped[list[str] | None] = mapped_column(JSON)
+    content_hash: Mapped[str | None] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    filing: Mapped[Filing | None] = relationship(back_populates="documents")
     chunks: Mapped[list[DocumentChunk]] = relationship(back_populates="document")
 
 
@@ -166,8 +207,72 @@ class DocumentChunk(Base):
     search_vector: Mapped[str | None] = mapped_column(Text)
     start_char: Mapped[int | None] = mapped_column(Integer)
     end_char: Mapped[int | None] = mapped_column(Integer)
+    filing_id: Mapped[int | None] = mapped_column(ForeignKey("filings.id", ondelete="SET NULL"))
+    source_url: Mapped[str | None] = mapped_column(Text)
+    parser_version: Mapped[str | None] = mapped_column(String(64))
+    content_hash: Mapped[str | None] = mapped_column(String(128))
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class CompanySourceIdentifier(Base):
+    __tablename__ = "company_source_identifiers"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_id",
+            "external_issuer_id",
+            "external_symbol",
+            "exchange",
+            name="uq_company_source_identifier",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id", ondelete="CASCADE"))
+    source_id: Mapped[str] = mapped_column(String(128), index=True)
+    external_issuer_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    external_symbol: Mapped[str | None] = mapped_column(String(64), index=True)
+    exchange: Mapped[str | None] = mapped_column(String(32), index=True)
+    market: Mapped[str | None] = mapped_column(String(64))
+    issuer_name: Mapped[str | None] = mapped_column(String(255))
+    current_name: Mapped[str | None] = mapped_column(String(255))
+    historical_names: Mapped[list[str] | None] = mapped_column(JSON)
+    listing_status: Mapped[str | None] = mapped_column(String(64))
+    valid_from: Mapped[str | None] = mapped_column(String(32))
+    valid_to: Mapped[str | None] = mapped_column(String(32))
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSON)
+    verified_at: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    company: Mapped[Company] = relationship(back_populates="source_identifiers")
+
+
+class DataQualityIssue(Base):
+    __tablename__ = "data_quality_issues"
+    __table_args__ = (
+        UniqueConstraint(
+            "issue_type",
+            "entity_type",
+            "entity_id",
+            "source_id",
+            name="uq_data_quality_issue_entity",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    issue_type: Mapped[str] = mapped_column(String(128), index=True)
+    severity: Mapped[str] = mapped_column(String(64), default="medium", index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    symbol: Mapped[str | None] = mapped_column(String(32), index=True)
+    source_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    status: Mapped[str] = mapped_column(String(64), default="open", index=True)
+    details: Mapped[dict | None] = mapped_column(JSON)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolution_note: Mapped[str | None] = mapped_column(Text)
 
 
 class ResearchRun(Base):

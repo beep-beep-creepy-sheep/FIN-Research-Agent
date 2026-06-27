@@ -6,8 +6,8 @@ Updated: 2026-06-26
 
 - Stage 1 status: PASS.
 - Stage 2 status: PASS locally for final metric integrity, canonical price series, and common TTM windows.
-- Stage 3 status: pending; not started.
-- Current branch: main.
+- Stage 3 status: in progress on `feature/stage-3-official-source-coverage`; fixture-backed official source and filing provenance layer implemented locally, live smoke not run.
+- Current branch: feature/stage-3-official-source-coverage.
 - Current commit before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
 - origin/main before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
 - Final pushed commit SHA for this document update is recorded in the Stage 2 final checkpoint output.
@@ -72,7 +72,6 @@ Updated: 2026-06-26
 
 ## Stage 3 Todo
 
-- For the company metrics API, automatically select and load an appropriate benchmark index price series.
-- China A-share default benchmarks should be selected from exchange, market, and industry configuration, not from one hard-coded index.
-- Return `benchmark_code`, `benchmark_source`, and the benchmark selection reason to the frontend.
-- When benchmark data is unavailable, Beta and Alpha should return explicit `missing_reason` values.
+- Verify full local gates after Stage 3 implementation.
+- Push branch and observe GitHub Actions backend, frontend, and e2e.
+- Live source smoke remains opt-in and must be reported separately from fixture verification.
