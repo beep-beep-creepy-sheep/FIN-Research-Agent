@@ -7,6 +7,7 @@ import {
   getCompanySummary,
   getDataQualityIssues,
   getDataQualitySummary,
+  type CompanySummary,
   type FilingRecord,
   type MarketChart,
 } from "@/lib/api";
@@ -16,25 +17,27 @@ import { FilingSyncButton } from "@/features/FilingSyncButton";
 
 export default async function CompanyPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
-  let summary = null;
+  let summary: CompanySummary | null = null;
   let charts: MarketChart[] = [];
   let filings: FilingRecord[] = [];
   let benchmark: Record<string, unknown> | null = null;
   let qualitySummary: Record<string, unknown> | null = null;
   let qualityIssues: Array<Record<string, unknown>> = [];
-  let error = "";
-  try {
-    [summary, charts, filings, benchmark, qualitySummary, qualityIssues] = await Promise.all([
-      getCompanySummary(symbol),
-      getCompanyCharts(symbol),
-      getCompanyFilings(symbol),
-      getCompanyBenchmark(symbol),
-      getDataQualitySummary(),
-      getDataQualityIssues(),
-    ]);
-  } catch (exc) {
-    error = exc instanceof Error ? exc.message : "Unable to load company";
-  }
+  const results = await Promise.allSettled([
+    getCompanySummary(symbol),
+    getCompanyCharts(symbol),
+    getCompanyFilings(symbol),
+    getCompanyBenchmark(symbol),
+    getDataQualitySummary(),
+    getDataQualityIssues(),
+  ] as const);
+  summary = settledValue(results[0], null);
+  charts = settledValue(results[1], []);
+  filings = settledValue(results[2], []);
+  benchmark = settledValue(results[3], null);
+  qualitySummary = settledValue(results[4], null);
+  qualityIssues = settledValue(results[5], []);
+  const partialFailures = results.filter((result) => result.status === "rejected").length;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
@@ -47,9 +50,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
         <SyncButton symbol={symbol} />
       </div>
 
-      {error ? (
+      {partialFailures ? (
         <div className="mb-4 rounded-md border border-risk bg-white p-4 text-sm text-risk">
-          读取失败：{error}
+          部分数据暂不可用，其他卡片仍可查看。
         </div>
       ) : null}
 
@@ -243,6 +246,10 @@ function KeyValueGrid({ items }: { items: Array<[string, unknown]> }) {
 
 function EmptyState({ text }: { text: string }) {
   return <p className="rounded border border-line bg-slate-50 p-3 text-sm text-slate-600">{text}</p>;
+}
+
+function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  return result.status === "fulfilled" ? result.value : fallback;
 }
 
 function getCompanyName(company: Record<string, unknown> | null | undefined, symbol?: string) {
