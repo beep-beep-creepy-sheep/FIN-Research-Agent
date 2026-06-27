@@ -18,6 +18,25 @@ SOURCE_TIERS = {
 VERIFIED_SOURCE_TIERS = {"official", "regulator", "exchange", "issuer"}
 
 
+class SourceAdapterError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: str = "error",
+        error_type: str | None = None,
+        blocked_reason: str | None = None,
+        retry_after: str | None = None,
+        endpoint: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.error_type = error_type or self.__class__.__name__
+        self.blocked_reason = blocked_reason
+        self.retry_after = retry_after
+        self.endpoint = endpoint
+
+
 @dataclass(frozen=True)
 class OfficialSourceDefinition:
     source_id: str

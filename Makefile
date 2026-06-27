@@ -1,4 +1,4 @@
-.PHONY: setup start test lint typecheck tracked-secret-file-check secret-scan python-audit api worker web postgres-config
+.PHONY: setup start test lint typecheck tracked-secret-file-check secret-scan python-audit live-source-smoke api worker web postgres-config
 
 setup:
 	cd frontend && npm install
@@ -31,6 +31,9 @@ secret-scan:
 python-audit:
 	@python -c 'import tomllib; from pathlib import Path; seen=[]; [seen.append(dep) for path in [Path("pyproject.toml"), Path("backend/pyproject.toml")] for dep in tomllib.loads(path.read_text()).get("project", {}).get("dependencies", []) + tomllib.loads(path.read_text()).get("project", {}).get("optional-dependencies", {}).get("dev", []) if dep not in seen]; Path("/tmp/finresearch-requirements.txt").write_text("\n".join(seen) + "\n")'
 	python -m pip_audit -r /tmp/finresearch-requirements.txt
+
+live-source-smoke:
+	PYTHONPATH=.:backend/src RUN_LIVE_SOURCE_TESTS=true OFFICIAL_SOURCE_MODE=live python -m finresearch.cli.live_source_smoke
 
 api:
 	PYTHONPATH=.:backend/src uvicorn finresearch.api.main:app --reload --host 127.0.0.1 --port 8000

@@ -437,3 +437,11 @@ Stage 3 官方来源 API：
 - `GET /v1/documents/{document_id}/chunks`
 - `GET /v1/data-quality/summary`
 - `GET /v1/companies/{symbol}/benchmark`
+
+Live source smoke is opt-in and separate from CI:
+
+```bash
+make live-source-smoke
+```
+
+Default local/CI official source mode is fixture-backed. Use `OFFICIAL_SOURCE_MODE=live` only for explicit smoke checks; fixture success must not be reported as live source success.

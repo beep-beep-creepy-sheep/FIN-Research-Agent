@@ -59,7 +59,7 @@ class JobService:
         return self.repository.create("sync_official_filings", payload)
 
     def create_filing_job(self, job_type: str, filing_id: int) -> dict[str, object]:
-        if job_type not in {"download_filing", "parse_filing", "reparse_document"}:
+        if job_type not in {"download_filing", "parse_filing", "reparse_document", "retry_filing"}:
             raise ValueError(f"unsupported_job_type:{job_type}")
         return self.repository.create(job_type, {"filing_id": filing_id})
 
@@ -129,7 +129,21 @@ class JobService:
                 )
                 result = FilingDocumentParser().parse_filing(int(payload["filing_id"]))
             elif job["job_type"] == "download_filing":
-                raise ValueError("download_filing_requires_source_adapter_context")
+                self.repository.update(
+                    job_id,
+                    status="running",
+                    progress=45,
+                    current_stage="downloading_artifacts",
+                )
+                result = OfficialFilingService().download_filing(int(payload["filing_id"]))
+            elif job["job_type"] == "retry_filing":
+                self.repository.update(
+                    job_id,
+                    status="running",
+                    progress=45,
+                    current_stage="retrying_filing",
+                )
+                result = OfficialFilingService().retry_filing(int(payload["filing_id"]))
             elif job["job_type"] == "research_run":
                 run_id = int(payload["research_run_id"])
                 ResearchService(self.library_path).research_repo.mark_running(run_id)

@@ -1,13 +1,13 @@
 # Project State
 
-Updated: 2026-06-26
+Updated: 2026-06-27
 
 ## Snapshot
 
 - Stage 1 status: PASS.
 - Stage 2 status: PASS locally for final metric integrity, canonical price series, and common TTM windows.
-- Stage 3 status: in progress on `feature/stage-3-official-source-coverage`; fixture-backed official source and filing provenance layer implemented locally, live smoke not run.
-- Current branch: feature/stage-3-official-source-coverage.
+- Stage 3 status: PASS locally for fixture-backed official source coverage, download/retry jobs, HTTP artifact safety, and CNINFO live adapter listing. Live smoke on 2026-06-27: CNINFO PASS; SSE/SZSE/BSE/SEC EDGAR NOT_IMPLEMENTED for live adapters.
+- Current branch: feature/stage-3-live-source-completion.
 - Current commit before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
 - origin/main before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
 - Final pushed commit SHA for this document update is recorded in the Stage 2 final checkpoint output.
@@ -72,6 +72,6 @@ Updated: 2026-06-26
 
 ## Stage 3 Todo
 
-- Verify full local gates after Stage 3 implementation.
-- Push branch and observe GitHub Actions backend, frontend, and e2e.
+- Push Stage 3 live-source completion branch and observe GitHub Actions backend, frontend, and e2e.
+- SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.

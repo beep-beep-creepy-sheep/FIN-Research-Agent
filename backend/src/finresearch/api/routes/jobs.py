@@ -40,7 +40,7 @@ def create_job(request: JobCreate, db_path: Path = Depends(library_path)) -> dic
             start_date=request.start_date,
             end_date=request.end_date,
         )
-    if request.job_type in {"download_filing", "parse_filing", "reparse_document"}:
+    if request.job_type in {"download_filing", "parse_filing", "reparse_document", "retry_filing"}:
         if request.filing_id is None:
             raise HTTPException(status_code=400, detail="filing_id_required")
         return JobService(db_path).create_filing_job(request.job_type, request.filing_id)

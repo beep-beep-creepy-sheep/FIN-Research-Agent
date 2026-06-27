@@ -66,4 +66,4 @@ def create_filing_parse_job(filing_id: int, db_path: Path = Depends(library_path
 
 @router.post("/filings/{filing_id}/retry")
 def create_filing_retry_job(filing_id: int, db_path: Path = Depends(library_path)) -> dict[str, object]:
-    return JobService(db_path).create_filing_job("parse_filing", filing_id)
+    return JobService(db_path).create_filing_job("retry_filing", filing_id)
