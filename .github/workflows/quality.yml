@@ -90,7 +90,7 @@ jobs:
           rm -f data/e2e.sqlite
           mkdir -p data
           PYTHONPATH=.:backend/src DATABASE_URL=sqlite:///data/e2e.sqlite LLM_ENABLED=false OFFICIAL_SOURCE_MODE=fixture \
-            uvicorn finresearch.api.main:app --host 127.0.0.1 --port 8000 > backend-e2e.log 2>&1 &
+            uvicorn finresearch.api.main:app --host 127.0.0.1 --port 8000 > /tmp/finresearch-api.log 2>&1 &
           echo $! > backend-e2e.pid
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8000/health; then
@@ -100,28 +100,28 @@ jobs:
             sleep 2
           done
           echo "Backend did not become healthy. Backend logs:"
-          cat backend-e2e.log || true
+          cat /tmp/finresearch-api.log || true
           exit 1
       - name: Playwright critical flows
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
-          PLAYWRIGHT_WEB_SERVER_COMMAND: "npm run start -- --hostname 127.0.0.1 --port 3000 2>&1 | tee ../frontend-e2e.log"
+          PLAYWRIGHT_WEB_SERVER_COMMAND: "npm run start -- --hostname 127.0.0.1 --port 3000 2>&1 | tee /tmp/finresearch-frontend.log"
         run: npm run test:e2e -- --project=chromium
       - name: Print e2e logs on failure
         if: failure()
         run: |
           echo "Backend logs:"
-          cat backend-e2e.log || true
+          cat /tmp/finresearch-api.log || true
           echo "Frontend logs:"
-          cat frontend-e2e.log || true
+          cat /tmp/finresearch-frontend.log || true
       - name: Upload e2e failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-failure-artifacts
           path: |
-            backend-e2e.log
-            frontend-e2e.log
+            /tmp/finresearch-api.log
+            /tmp/finresearch-frontend.log
             frontend/test-results/
             frontend/playwright-report/
