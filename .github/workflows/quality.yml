@@ -72,8 +72,7 @@ jobs:
       - name: Install backend dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-          python -m pip install fastapi sqlalchemy "psycopg[binary]" python-multipart alembic
+          python -m pip install -e "backend[dev]"
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
@@ -90,7 +89,7 @@ jobs:
           rm -f data/e2e.sqlite
           mkdir -p data
           PYTHONPATH=.:backend/src DATABASE_URL=sqlite:///data/e2e.sqlite LLM_ENABLED=false OFFICIAL_SOURCE_MODE=fixture \
-            uvicorn finresearch.api.main:app --host 127.0.0.1 --port 8000 > /tmp/finresearch-api.log 2>&1 &
+            python -m uvicorn finresearch.api.main:app --host 127.0.0.1 --port 8000 > /tmp/finresearch-api.log 2>&1 &
           echo $! > backend-e2e.pid
           for i in $(seq 1 60); do
             if curl -fsS http://127.0.0.1:8000/health; then
@@ -101,6 +100,10 @@ jobs:
           done
           echo "Backend did not become healthy. Backend logs:"
           cat /tmp/finresearch-api.log || true
+          echo "uvicorn package:"
+          python -m pip show uvicorn || true
+          echo "Selected Python packages:"
+          python -m pip list | grep -E "uvicorn|fastapi|sqlalchemy|alembic" || true
           exit 1
       - name: Playwright critical flows
         working-directory: frontend
