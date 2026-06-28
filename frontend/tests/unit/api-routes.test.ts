@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   API_ROUTES,
   createCompanyReport,
+  createPortfolio,
+  createCalendarEvent,
   createResearchRun,
+  evaluatePortfolioAlerts,
   getAiStatus,
   getCompanyAnalysis,
   getCompanyCharts,
@@ -12,6 +15,7 @@ import {
   getCompanyMetrics,
   getConnectors,
   getMarketOverview,
+  getPortfolios,
   getScreenerPresets,
   queryScreener,
   reportHtmlUrl,
@@ -46,6 +50,10 @@ describe("frontend API route contract", () => {
     expect(API_ROUTES.companyReport("600519")).toBe("/v1/companies/600519/report");
     expect(API_ROUTES.companyReportRuns("600519")).toBe("/v1/companies/600519/report/runs");
     expect(API_ROUTES.reportValidation("report_1")).toBe("/v1/report-runs/report_1/validation");
+    expect(API_ROUTES.portfolios).toBe("/v1/portfolios");
+    expect(API_ROUTES.portfolio("7")).toBe("/v1/portfolios/7");
+    expect(API_ROUTES.portfolioAlertEvaluate("7")).toBe("/v1/portfolios/7/alerts/evaluate");
+    expect(API_ROUTES.calendarEvents).toBe("/v1/calendar/events");
     expect(API_ROUTES.screenerQuery).toBe("/v1/screener/query");
     expect(API_ROUTES.screenerPresets).toBe("/v1/screener/presets");
     expect(API_ROUTES.screenerExport).toBe("/v1/screener/export");
@@ -311,6 +319,24 @@ describe("frontend API route contract", () => {
     expect(calls[0].url).toContain("/v1/companies/600519/report");
     expect(reportMarkdownUrl("report_1")).toContain("/v1/report-runs/report_1/markdown");
     expect(reportHtmlUrl("report_1")).toContain("/v1/report-runs/report_1/html");
+  });
+
+  it("uses portfolio, alert, and calendar endpoints", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return jsonResponse(200, { id: 7, name: "Research", events: [], triggered: [] });
+    });
+
+    await getPortfolios();
+    await createPortfolio({ name: "Research", portfolio_type: "watchlist" });
+    await evaluatePortfolioAlerts(7);
+    await createCalendarEvent({ title: "Manual research reminder", event_date: "2026-06-28" });
+
+    const urls = calls.map((call) => call.url).join("\n");
+    expect(urls).toContain("/v1/portfolios");
+    expect(urls).toContain("/v1/portfolios/7/alerts/evaluate");
+    expect(urls).toContain("/v1/calendar/events");
   });
 });
 

@@ -42,6 +42,12 @@ export default function DashboardPage() {
             <Link href="/screener" className="ml-4 inline-block font-medium text-accent">
               打开筛选器
             </Link>
+            <Link href="/portfolios" className="ml-4 inline-block font-medium text-accent">
+              打开组合工作台
+            </Link>
+            <Link href="/calendar" className="ml-4 inline-block font-medium text-accent">
+              打开日历
+            </Link>
           </div>
         </Card>
         <Card title="外部连接器">

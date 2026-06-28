@@ -10,8 +10,9 @@ Updated: 2026-06-28
 - Stage 4 status: PASS. Stage 4 is merged into `main`; GitHub Actions run `28318788762` for `5a4c42916308e8d18e74c62f3820fd45c20e86f4` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 5 status: PASS. Stage 5 is merged into `main`; GitHub Actions run `28326223624` for `b2612924a105feec0ddcf1b0a4c467ba7777bfdc` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 6 status: PASS. Stage 6 is merged into `main`; PR #7 `feat: implement stage 6 institutional reporting`; GitHub Actions run `28328935273` for `37af5282a0686c0286fa720c8bb64976c637356c` completed success for backend, frontend, and e2e on 2026-06-28.
-- Current branch: main.
-- Current main head: `37af5282a0686c0286fa720c8bb64976c637356c`.
+- Stage 7 status: PASS_LOCAL on `feature/stage-7-portfolio-risk-alerts-calendar`; GitHub Actions UNVERIFIED for Stage 7 until the feature branch/PR runs CI.
+- Current branch: `feature/stage-7-portfolio-risk-alerts-calendar`.
+- Current main head: `428ab8af77b5687e0e4baaae2c0dee5a61918615`.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -115,11 +116,48 @@ Updated: 2026-06-28
 - Python dependency audit: PASS, `make python-audit`, no known vulnerabilities.
 - npm dependency audit high-severity gate: PASS, `npm audit --audit-level=high`; 2 moderate Next/PostCSS findings remain.
 
+## Stage 7 Portfolio / Risk / Alerts / Calendar State
+
+- Portfolio model: implemented for local research portfolios, manual positions, watch items, snapshots, risk runs, alert rules/events, and calendar events through Alembic revision `0007_stage7_portfolio`.
+- Portfolio analytics: implemented for market value when prices exist, cost value when cost basis exists, unrealized gain/loss when both exist, manual weight override, equal-weight watch portfolios, exposure buckets, concentration, top positions, and missing-data summaries.
+- Portfolio risk: implemented for weighted volatility, missing benchmark beta state, drawdown proxy, concentration, data-quality risk, stale price risk, missing filing risk, valuation risk flags, report validation flags, optional correlation matrix, and diversification score.
+- Portfolio performance: implemented for local daily value series, cumulative return, period return, volatility, max drawdown, contribution, benchmark missing state, and partial coverage warnings.
+- Alerts: implemented for local rule storage, manual evaluation, alert events, acknowledge/dismiss states, and missing-data skipped states.
+- Calendar: implemented for local manual events and filtered event queries; future official dates are not guessed.
+- Portfolio report: implemented as deterministic Stage 7 sections with Stage 6 validation guard naming and missing-data limitations.
+- API/frontend: `/v1/portfolios`, `/v1/calendar/events`, portfolio detail analytics, alerts, calendar, and report endpoints; frontend pages at `/portfolios`, `/portfolios/[portfolioId]`, and `/calendar`.
+- Guardrails: no broker login, no account sync, no automatic trading, no real order placement, no external push service, no target price output, and no rebalancing instruction output.
+- Verification status: Stage 7 local quality gates passed on 2026-06-28; GitHub Actions are not yet verified for this branch.
+
+## Stage 7 Local Gates Run
+
+- Python tests: PASS, `PYTHONPATH=.:backend/src pytest -q`, 145 passed.
+- Focused Stage 7 tests: PASS, `PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage7_portfolio_risk_alerts.py`, 5 passed.
+- Stage 3-7 regression tests: PASS, focused Stage 3, Stage 4, Stage 5, Stage 6, and Stage 7 suites, 37 passed.
+- Ruff: PASS, `ruff check .`.
+- Python type check: PASS, `PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch`, 101 files, 0 errors.
+- Frontend tests: PASS, `cd frontend && npm test`, 16 passed.
+- Frontend TypeScript: PASS, `cd frontend && npx tsc --noEmit`.
+- Frontend build: PASS, `cd frontend && npm run build`.
+- Playwright Chromium: PASS, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 ... npm run test:e2e -- --project=chromium`, 7 passed.
+- SQLite Alembic empty upgrade: PASS through `0007_stage7_portfolio`.
+- PostgreSQL migration verification: BLOCKED_LOCAL_TOOLING, `pg_isready` is not installed in this local environment.
+- FastAPI smoke: PASS, `/health` returned ok against a local FastAPI server.
+- Worker smoke: PASS, `run_once()` processed a queued fixture sync job successfully against the local smoke database.
+- Portfolio API smoke: PASS, local portfolio create/detail/summary/risk/performance endpoints returned successfully.
+- Alerts evaluate smoke: PASS, local alert rule evaluation created a deterministic alert event.
+- Calendar API smoke: PASS, local manual event create/list returned successfully.
+- Secret scan: PASS, `make tracked-secret-file-check` and `make secret-scan`; detect-secrets findings 0.
+- Python dependency audit: PASS, `make python-audit`, no known vulnerabilities.
+- npm dependency audit high-severity gate: PASS, `npm audit --audit-level=high`; 2 moderate Next/PostCSS findings remain.
+
 ## Known Limitations
 
 - Current API price analytics route does not yet infer benchmark series automatically; benchmark metrics return missing unless a caller supplies aligned benchmark inputs to the service.
 - Currency enforcement is strict for financial period normalization; market-cap currency conversion is not attempted.
 - npm audit high-severity gate passes; moderate findings remain in Next's transitive PostCSS dependency unless upstream provides a non-breaking fix.
 - Local Ollama report narration remains optional and off by default; deterministic reports remain the default behavior.
+- Portfolio currency conversion is not attempted; currency mismatches are surfaced as missing/limitation states.
+- Alert evaluation is local/manual and does not send external notifications.
 - SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.

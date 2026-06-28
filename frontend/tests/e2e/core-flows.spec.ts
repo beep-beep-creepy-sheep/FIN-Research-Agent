@@ -5,6 +5,8 @@ test("home links to market terminal and screener", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "财务研究工作台" })).toBeVisible();
   await expect(page.getByRole("link", { name: "打开市场终端" })).toBeVisible();
   await expect(page.getByRole("link", { name: "打开筛选器" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开组合工作台" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "打开日历" })).toBeVisible();
 });
 
 test("market terminal renders professional empty states and sources", async ({ page }) => {
@@ -54,4 +56,30 @@ test("company page can create official filing sync job and show provenance panel
   await expect(page.getByText("当前没有数据质量问题；这也可能表示还没有运行官方公告同步。")).toBeVisible();
   await page.getByRole("button", { name: "Sync Filings" }).click();
   await expect(page.getByText(/job \d+ queued/)).toBeVisible();
+});
+
+test("portfolio workspace can create a local research portfolio and show risk sections", async ({ page }) => {
+  await page.goto("/portfolios");
+  await expect(page.getByRole("heading", { name: "Portfolio Research Workspace" })).toBeVisible();
+  await expect(page.getByText("Not investment advice. Portfolios are local research lists, not brokerage accounts.")).toBeVisible();
+  await page.getByRole("button", { name: "Create Portfolio" }).click();
+  await expect(page.getByText("created")).toBeVisible();
+  await page.getByText("Local Research Portfolio").click();
+  await expect(page.getByRole("heading", { name: "Exposure" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Risk" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Performance" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Alerts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
+  await page.getByRole("button", { name: "Add Watch Item" }).click();
+  await expect(page.getByText("watch item added")).toBeVisible();
+  await page.getByRole("button", { name: "Evaluate Alert" }).click();
+  await expect(page.getByText(/alerts evaluated/)).toBeVisible();
+});
+
+test("calendar page shows no-known-events state and supports manual events", async ({ page }) => {
+  await page.goto("/calendar");
+  await expect(page.getByRole("heading", { name: "Research Calendar" })).toBeVisible();
+  await expect(page.getByText("Future events are never guessed.")).toBeVisible();
+  await page.getByRole("button", { name: "Add Manual Event" }).click();
+  await expect(page.getByText("event added")).toBeVisible();
 });

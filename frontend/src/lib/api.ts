@@ -14,6 +14,20 @@ export const API_ROUTES = {
   reportHtml: (runId: string) => `/v1/report-runs/${runId}/html`,
   reportValidation: (runId: string) => `/v1/report-runs/${runId}/validation`,
   reportEvidence: (runId: string) => `/v1/report-runs/${runId}/evidence`,
+  portfolios: "/v1/portfolios",
+  portfolio: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}`,
+  portfolioHoldings: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/holdings`,
+  portfolioWatchItems: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/watch-items`,
+  portfolioSummary: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/summary`,
+  portfolioExposure: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/exposure`,
+  portfolioRisk: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/risk`,
+  portfolioPerformance: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/performance`,
+  portfolioDataQuality: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/data-quality`,
+  portfolioReport: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/report`,
+  portfolioAlertRules: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/alerts/rules`,
+  portfolioAlertEvents: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/alerts/events`,
+  portfolioAlertEvaluate: (portfolioId: string | number) => `/v1/portfolios/${portfolioId}/alerts/evaluate`,
+  calendarEvents: "/v1/calendar/events",
   screenerQuery: "/v1/screener/query",
   screenerPresets: "/v1/screener/presets",
   screenerExport: "/v1/screener/export",
@@ -207,6 +221,19 @@ export type ReportRequest = {
   language?: "en" | "zh";
 };
 
+export type PortfolioRecord = {
+  id: number;
+  name: string;
+  description?: string | null;
+  base_currency: string;
+  portfolio_type: string;
+  archived?: boolean;
+  holdings_count?: number;
+  watch_count?: number;
+  open_alerts?: number;
+  next_known_events?: number;
+};
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -319,6 +346,77 @@ export function getCompanyPeerMetrics(symbol: string): Promise<PeerMetricsRespon
 
 export function getCompanyValuation(symbol: string, modelType = "relative_valuation"): Promise<ValuationResponse> {
   return fetchJson<ValuationResponse>(`${API_ROUTES.companyValuation(symbol)}?model_type=${encodeURIComponent(modelType)}`);
+}
+
+export function getPortfolios(): Promise<PortfolioRecord[]> {
+  return fetchJson<PortfolioRecord[]>(API_ROUTES.portfolios);
+}
+
+export function createPortfolio(payload: Record<string, unknown>): Promise<PortfolioRecord> {
+  return fetchJson<PortfolioRecord>(API_ROUTES.portfolios, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getPortfolio(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolio(portfolioId));
+}
+
+export function addPortfolioHolding(portfolioId: string | number, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioHoldings(portfolioId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addPortfolioWatchItem(portfolioId: string | number, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioWatchItems(portfolioId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getPortfolioSummary(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioSummary(portfolioId));
+}
+
+export function getPortfolioExposure(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioExposure(portfolioId));
+}
+
+export function getPortfolioRisk(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioRisk(portfolioId));
+}
+
+export function getPortfolioPerformance(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioPerformance(portfolioId));
+}
+
+export function getPortfolioReport(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioReport(portfolioId));
+}
+
+export function createPortfolioAlertRule(portfolioId: string | number, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioAlertRules(portfolioId), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function evaluatePortfolioAlerts(portfolioId: string | number): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.portfolioAlertEvaluate(portfolioId), { method: "POST" });
+}
+
+export function getCalendarEvents(query = ""): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(`${API_ROUTES.calendarEvents}${query}`);
+}
+
+export function createCalendarEvent(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.calendarEvents, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function createCompanyReport(symbol: string, request: ReportRequest): Promise<InstitutionalReport> {
