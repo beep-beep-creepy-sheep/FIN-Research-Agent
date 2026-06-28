@@ -1,12 +1,14 @@
 import { Card } from "@/components/Card";
 import { EChartPanel } from "@/charts/EChartPanel";
 import {
+  getCompanyAnalysis,
   getCompanyBenchmark,
   getCompanyCharts,
   getCompanyFilings,
   getCompanySummary,
   getDataQualityIssues,
   getDataQualitySummary,
+  type AnalysisReport,
   type CompanySummary,
   type FilingRecord,
   type MarketChart,
@@ -23,6 +25,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
   let benchmark: Record<string, unknown> | null = null;
   let qualitySummary: Record<string, unknown> | null = null;
   let qualityIssues: Array<Record<string, unknown>> = [];
+  let analysis: AnalysisReport | null = null;
   const results = await Promise.allSettled([
     getCompanySummary(symbol),
     getCompanyCharts(symbol),
@@ -30,6 +33,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
     getCompanyBenchmark(symbol),
     getDataQualitySummary(),
     getDataQualityIssues(),
+    getCompanyAnalysis(symbol),
   ] as const);
   summary = settledValue(results[0], null);
   charts = settledValue(results[1], []);
@@ -37,6 +41,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
   benchmark = settledValue(results[3], null);
   qualitySummary = settledValue(results[4], null);
   qualityIssues = settledValue(results[5], []);
+  analysis = settledValue(results[6], null);
   const partialFailures = results.filter((result) => result.status === "rejected").length;
 
   return (
@@ -211,6 +216,51 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
             )}
           </div>
         </Card>
+        <Card title="Professional Analysis">
+          {analysis ? (
+            <div className="space-y-4">
+              <p className="text-sm leading-6 text-slate-700">{analysis.executive_summary}</p>
+              <KeyValueGrid
+                items={[
+                  ["综合研究质量", formatScore(analysis.scores, "overall_research_quality_score")],
+                  ["行业包", formatPackList(analysis.financial_profile.industry_packs)],
+                  ["行业状态", String(analysis.financial_profile.industry ?? "unknown")],
+                  ["证据数量", analysis.evidence_map.length],
+                ]}
+              />
+              {analysis.key_findings.length ? (
+                <div className="space-y-2">
+                  {analysis.key_findings.slice(0, 5).map((finding) => (
+                    <div key={finding.finding_id} className="rounded border border-line bg-slate-50 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="font-medium text-slate-900">{finding.title}</div>
+                        <span className="rounded border border-line bg-white px-2 py-1 text-xs text-slate-600">
+                          {finding.direction}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-slate-700">{finding.summary}</p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        evidence: facts {finding.source_fact_ids?.length ?? 0}, prices {finding.source_price_ids?.length ?? 0}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState text="专业分析已运行，但没有可展示的 finding。" />
+              )}
+              <AnalysisSectionState title="Growth" section={analysis.growth} />
+              <AnalysisSectionState title="Industry Pack" section={analysis.industry_specific} />
+              <AnalysisSectionState title="Quality & Risk" section={analysis.data_quality} />
+              {analysis.quality_flags.length ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  {analysis.quality_flags.map((flag) => String(flag.message ?? flag.flag_id)).join("；")}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <EmptyState text="专业分析暂不可用；公司不存在或本地数据不足时会显示结构化缺失状态。" />
+          )}
+        </Card>
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -246,6 +296,19 @@ function KeyValueGrid({ items }: { items: Array<[string, unknown]> }) {
 
 function EmptyState({ text }: { text: string }) {
   return <p className="rounded border border-line bg-slate-50 p-3 text-sm text-slate-600">{text}</p>;
+}
+
+function AnalysisSectionState({ title, section }: { title: string; section: Record<string, unknown> }) {
+  const warnings = Array.isArray(section.missing_data_warnings) ? section.missing_data_warnings : [];
+  return (
+    <div className="rounded border border-line bg-white p-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="font-medium text-slate-900">{title}</div>
+        <span className="text-xs text-slate-500">{String(section.state ?? "unknown")}</span>
+      </div>
+      {warnings.length ? <p className="mt-2 text-xs text-amber-700">{warnings.map(String).join("；")}</p> : null}
+    </div>
+  );
 }
 
 function settledValue<T>(result: PromiseSettledResult<T>, fallback: T): T {
@@ -288,6 +351,16 @@ function formatValue(value: unknown) {
 function compactJson(value: unknown) {
   if (!value || (typeof value === "object" && Object.keys(value).length === 0)) return "无";
   return JSON.stringify(value);
+}
+
+function formatScore(scores: Array<Record<string, unknown>>, scoreId: string) {
+  const score = scores.find((item) => item.score_id === scoreId);
+  const value = score?.score;
+  return typeof value === "number" ? value.toLocaleString("zh-CN", { maximumFractionDigits: 1 }) : "insufficient_data";
+}
+
+function formatPackList(value: unknown) {
+  return Array.isArray(value) ? value.map(String).join(", ") : String(value ?? "general");
 }
 
 function formatPeriod(period: string) {

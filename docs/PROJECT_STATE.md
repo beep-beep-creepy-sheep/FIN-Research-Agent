@@ -1,17 +1,17 @@
 # Project State
 
-Updated: 2026-06-27
+Updated: 2026-06-28
 
 ## Snapshot
 
 - Stage 1 status: PASS.
 - Stage 2 status: PASS locally for final metric integrity, canonical price series, and common TTM windows.
-- Stage 3 status: PASS locally for fixture-backed official source coverage, download/retry jobs, HTTP artifact safety, and CNINFO live adapter listing. Live smoke on 2026-06-27: CNINFO PASS; SSE/SZSE/BSE/SEC EDGAR NOT_IMPLEMENTED for live adapters.
-- Current branch: feature/stage-3-live-source-completion.
-- Current commit before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
-- origin/main before this final metric-integrity fix: `6796ad8779ac911740ac9f6e75644b95dccad550`.
-- Final pushed commit SHA for this document update is recorded in the Stage 2 final checkpoint output.
-- GitHub Actions true status: UNVERIFIED until the final commit is pushed and backend, frontend, and e2e jobs complete.
+- Stage 3 status: PASS. Stage 3 is merged into `main`; GitHub Actions run `28295527902` for `8b08189f8a0ee1d7aaaa12870231ccbceab86dec` completed success for backend, frontend, and e2e on 2026-06-28.
+- Stage 4 status: IN_PROGRESS on branch `feature/stage-4-professional-analysis`.
+- Current branch: feature/stage-4-professional-analysis.
+- Current Stage 4 base: `8b08189f8a0ee1d7aaaa12870231ccbceab86dec`.
+- origin/main at Stage 4 start: `8b08189f8a0ee1d7aaaa12870231ccbceab86dec`.
+- GitHub Actions true status for Stage 4: UNVERIFIED until this branch is pushed and backend, frontend, and e2e jobs complete.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -63,15 +63,26 @@ Updated: 2026-06-27
 - `MetricObservation` schema now includes implementation metadata and price/benchmark/assumption fields through Alembic revision `0003_professional_metric_metadata`.
 - Missing local facts or prices return null observations with explicit `missing_reason`; the code does not fabricate financial or market data.
 
+## Stage 4 Professional Analysis State
+
+- Analysis data contract: implemented in `finresearch.services.analysis`.
+- Industry packs: `general`, `bank`, and `consumer_manufacturing`.
+- Scoring: transparent research-quality components with insufficient-data behavior.
+- Evidence: findings retain metric fact IDs, price IDs, source URLs, evidence markers, and limitations.
+- strict_as_of: analysis uses existing repository filtering before metric calculation.
+- API: `/v1/companies/{symbol}/analysis`, `/analysis/findings`, `/analysis/report`, `/analysis/quality`, `/industry-pack`, and `/v1/analysis-runs`.
+- Frontend: company page Professional Analysis panel with partial failure handling and insufficient-data state.
+- Non-goals preserved: no target price, no trading signal, no broker login, no automatic order placement, no paid API dependency.
+
 ## Known Limitations
 
-- GitHub Actions status is UNVERIFIED until the final pushed commit is checked.
+- Stage 4 GitHub Actions status is UNVERIFIED until the branch is pushed and checked.
 - Current API price analytics route does not yet infer benchmark series automatically; benchmark metrics return missing unless a caller supplies aligned benchmark inputs to the service.
 - Currency enforcement is strict for financial period normalization; market-cap currency conversion is not attempted.
 - npm audit high-severity gate passes; moderate findings remain in Next's transitive PostCSS dependency unless upstream provides a non-breaking fix.
 
-## Stage 3 Todo
+## Stage 4 Todo
 
-- Push Stage 3 live-source completion branch and observe GitHub Actions backend, frontend, and e2e.
+- Push Stage 4 branch and observe GitHub Actions backend, frontend, and e2e.
 - SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from finresearch.api.routes import (
     companies,
     ai,
+    analysis,
     connectors,
     data_quality,
     data_sources,
@@ -33,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(companies.router, prefix="/v1/companies", tags=["companies"])
+app.include_router(analysis.router, prefix="/v1", tags=["analysis"])
 app.include_router(ai.router, prefix="/v1/ai", tags=["ai"])
 app.include_router(financials.router, prefix="/v1/companies", tags=["financials"])
 app.include_router(prices.router, prefix="/v1/companies", tags=["prices"])

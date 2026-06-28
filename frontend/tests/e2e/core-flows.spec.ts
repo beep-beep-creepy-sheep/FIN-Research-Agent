@@ -28,6 +28,8 @@ test("company page shows chart suite empty and real financial chart states", asy
   await expect(page.getByRole("heading", { name: "研究摘要" })).toBeVisible();
   await expect(page.getByText("同步财务数据后，这里会生成自动研究摘要。")).toBeVisible();
   await expect(page.getByText("本地数据库里还没有该公司的财务期间数据。")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Professional Analysis" })).toBeVisible();
+  await expect(page.getByText(/专业分析暂不可用|deterministic findings|explicit missing-data findings/)).toBeVisible();
   await expect(page.getByText("K线与成交量")).toBeVisible();
   await expect(page.getByText("收入 / 净利润 / 经营现金流")).toBeVisible();
   await expect(page.getByText("价格来自本地 prices 表；抓取失败时不生成替代行情。")).toBeVisible();
