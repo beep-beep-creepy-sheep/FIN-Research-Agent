@@ -6,6 +6,14 @@ export const API_ROUTES = {
   companyPeers: (symbol: string) => `/v1/companies/${symbol}/peers`,
   companyPeerMetrics: (symbol: string) => `/v1/companies/${symbol}/peer-metrics`,
   companyValuation: (symbol: string) => `/v1/companies/${symbol}/valuation`,
+  companyReport: (symbol: string) => `/v1/companies/${symbol}/report`,
+  companyReportLatest: (symbol: string) => `/v1/companies/${symbol}/report/latest`,
+  companyReportRuns: (symbol: string) => `/v1/companies/${symbol}/report/runs`,
+  reportRun: (runId: string) => `/v1/report-runs/${runId}`,
+  reportMarkdown: (runId: string) => `/v1/report-runs/${runId}/markdown`,
+  reportHtml: (runId: string) => `/v1/report-runs/${runId}/html`,
+  reportValidation: (runId: string) => `/v1/report-runs/${runId}/validation`,
+  reportEvidence: (runId: string) => `/v1/report-runs/${runId}/evidence`,
   screenerQuery: "/v1/screener/query",
   screenerPresets: "/v1/screener/presets",
   screenerExport: "/v1/screener/export",
@@ -153,6 +161,52 @@ export type ValuationResponse = {
   not_investment_advice: boolean;
 };
 
+export type InstitutionalReportSection = {
+  section_id: string;
+  title: string;
+  status: string;
+  content: Record<string, unknown>;
+  evidence_ids?: string[];
+  limitations?: string[];
+  generated_by?: string;
+  validation_status?: string;
+};
+
+export type InstitutionalReport = {
+  run_id: string;
+  symbol: string;
+  as_of_date: string;
+  strict_as_of: boolean;
+  report_style: string;
+  language: string;
+  sections: InstitutionalReportSection[];
+  validation: Record<string, unknown>;
+  evidence_coverage: Record<string, unknown>;
+  warnings: string[];
+  limitations: string[];
+  llm: Record<string, unknown>;
+  bundle_hash: string;
+  report_hash: string;
+  generated_at: string;
+  report_version: string;
+  markdown?: string | null;
+  html?: string | null;
+  evidence?: Record<string, unknown> | null;
+};
+
+export type ReportRequest = {
+  as_of_date?: string | null;
+  strict_as_of?: boolean;
+  include_ai?: boolean;
+  include_markdown?: boolean;
+  include_html?: boolean;
+  include_evidence?: boolean;
+  force_rebuild?: boolean;
+  sections?: string[];
+  report_style?: string;
+  language?: "en" | "zh";
+};
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -265,6 +319,25 @@ export function getCompanyPeerMetrics(symbol: string): Promise<PeerMetricsRespon
 
 export function getCompanyValuation(symbol: string, modelType = "relative_valuation"): Promise<ValuationResponse> {
   return fetchJson<ValuationResponse>(`${API_ROUTES.companyValuation(symbol)}?model_type=${encodeURIComponent(modelType)}`);
+}
+
+export function createCompanyReport(symbol: string, request: ReportRequest): Promise<InstitutionalReport> {
+  return fetchJson<InstitutionalReport>(API_ROUTES.companyReport(symbol), {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export function getCompanyReport(symbol: string): Promise<InstitutionalReport> {
+  return fetchJson<InstitutionalReport>(`${API_ROUTES.companyReport(symbol)}?include_markdown=true&include_html=true&include_evidence=true`);
+}
+
+export function reportMarkdownUrl(runId: string) {
+  return `${API_BASE}${API_ROUTES.reportMarkdown(runId)}`;
+}
+
+export function reportHtmlUrl(runId: string) {
+  return `${API_BASE}${API_ROUTES.reportHtml(runId)}`;
 }
 
 export function getCompanyFilings(symbol: string): Promise<FilingRecord[]> {

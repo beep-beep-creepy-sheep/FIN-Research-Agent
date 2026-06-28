@@ -36,6 +36,9 @@ test("company page shows chart suite empty and real financial chart states", asy
   await expect(page.getByRole("heading", { name: "Peer Metrics Matrix" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Valuation Lab" })).toBeVisible();
   await expect(page.getByText("估值情景范围、相对分位和敏感性分析仅用于研究核验，不是投资建议。")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Institutional Report" })).toBeVisible();
+  await expect(page.getByText("Not investment advice. This report uses local evidence and deterministic validation before display.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Generate Report" })).toBeVisible();
   await expect(page.getByText("K线与成交量")).toBeVisible();
   await expect(page.getByText("收入 / 净利润 / 经营现金流")).toBeVisible();
   await expect(page.getByText("价格来自本地 prices 表；抓取失败时不生成替代行情。")).toBeVisible();

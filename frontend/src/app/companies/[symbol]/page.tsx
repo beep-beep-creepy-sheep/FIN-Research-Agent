@@ -22,6 +22,7 @@ import {
 import { SyncButton } from "@/features/SyncButton";
 import { ResearchRuns } from "@/features/ResearchRuns";
 import { FilingSyncButton } from "@/features/FilingSyncButton";
+import { InstitutionalReportPanel } from "@/features/InstitutionalReportPanel";
 
 export default async function CompanyPage({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
@@ -366,6 +367,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
             <ValuationBlock title="Relative Valuation" valuation={relativeValuation} />
             <ValuationBlock title="DCF / Owner Earnings Scenario" valuation={dcfValuation} />
           </div>
+        </Card>
+        <Card title="Institutional Report">
+          <InstitutionalReportPanel symbol={symbol} />
         </Card>
       </div>
 
