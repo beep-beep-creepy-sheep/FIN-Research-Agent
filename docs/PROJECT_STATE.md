@@ -9,9 +9,9 @@ Updated: 2026-06-28
 - Stage 3 status: PASS. Stage 3 is merged into `main`; GitHub Actions run `28295527902` for `8b08189f8a0ee1d7aaaa12870231ccbceab86dec` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 4 status: PASS. Stage 4 is merged into `main`; GitHub Actions run `28318788762` for `5a4c42916308e8d18e74c62f3820fd45c20e86f4` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 5 status: PASS. Stage 5 is merged into `main`; GitHub Actions run `28326223624` for `b2612924a105feec0ddcf1b0a4c467ba7777bfdc` completed success for backend, frontend, and e2e on 2026-06-28.
-- Stage 6 status: PASS_LOCAL on `feature/stage-6-ai-orchestration-reporting`; GitHub Actions UNVERIFIED for Stage 6 until the feature branch/PR runs CI.
-- Current branch: `feature/stage-6-ai-orchestration-reporting`.
-- Current main head: `a4bd334446ef69a8dbd6464893b7c155f841f125`.
+- Stage 6 status: PASS. Stage 6 is merged into `main`; PR #7 `feat: implement stage 6 institutional reporting`; GitHub Actions run `28328935273` for `37af5282a0686c0286fa720c8bb64976c637356c` completed success for backend, frontend, and e2e on 2026-06-28.
+- Current branch: main.
+- Current main head: `37af5282a0686c0286fa720c8bb64976c637356c`.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -95,7 +95,7 @@ Updated: 2026-06-28
 - API: `/v1/companies/{symbol}/report`, `/report/latest`, `/report/runs`, `/v1/report-runs/{run_id}`, `/markdown`, `/html`, `/validation`, `/evidence`, and `/regenerate-section`.
 - Frontend: company page includes an Institutional Report panel with deterministic/AI toggle, strict-as-of toggle, language selector, section selector, validation status, evidence coverage, report preview, Markdown export, HTML print view, and warning states.
 - Guardrails: no broker login, no automatic trading, no promised returns, no target price output, no model-created financial facts, and no model-created citations.
-- Verification status: local quality gates pass on 2026-06-28; GitHub Actions are not yet verified for this branch.
+- Verification status: Stage 6 local quality gates passed on 2026-06-28; GitHub Actions run `28328935273` completed success for backend, frontend, and e2e on 2026-06-28.
 
 ## Stage 6 Local Gates Run
 
