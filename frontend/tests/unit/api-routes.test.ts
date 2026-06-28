@@ -5,10 +5,16 @@ import {
   getAiStatus,
   getCompanyAnalysis,
   getCompanyCharts,
+  getCompanyPeerMetrics,
+  getCompanyPeers,
+  getCompanyValuation,
   getCompanyMetrics,
   getConnectors,
   getMarketOverview,
+  getScreenerPresets,
   queryScreener,
+  saveScreenerPreset,
+  screenerExportUrl,
 } from "../../src/lib/api";
 import {
   chartDataState,
@@ -31,7 +37,12 @@ describe("frontend API route contract", () => {
   it("uses canonical routes while documenting compatibility aliases", () => {
     expect(API_ROUTES.companyCharts("600519")).toBe("/v1/companies/600519/charts");
     expect(API_ROUTES.companyChartAlias("600519")).toBe("/v1/companies/600519/chart");
+    expect(API_ROUTES.companyPeers("600519")).toBe("/v1/companies/600519/peers");
+    expect(API_ROUTES.companyPeerMetrics("600519")).toBe("/v1/companies/600519/peer-metrics");
+    expect(API_ROUTES.companyValuation("600519")).toBe("/v1/companies/600519/valuation");
     expect(API_ROUTES.screenerQuery).toBe("/v1/screener/query");
+    expect(API_ROUTES.screenerPresets).toBe("/v1/screener/presets");
+    expect(API_ROUTES.screenerExport).toBe("/v1/screener/export");
     expect(API_ROUTES.screensQueryAlias).toBe("/v1/screens/query");
   });
 
@@ -220,6 +231,42 @@ describe("frontend API route contract", () => {
 
     expect(report.analysis_version).toBe("4.0.0");
     expect(report.executive_summary).toContain("deterministic");
+  });
+
+  it("fetches stage 5 peers, valuation, presets, and export routes without advice wording", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return jsonResponse(200, {
+        symbol: "600519",
+        as_of_date: "2026-06-28",
+        selected_symbols: ["600000"],
+        quality_flags: [],
+        limitations: [],
+        candidates: [],
+        columns: ["revenue"],
+        rows: [],
+        outlier_policy: "iqr",
+        valuation_run_id: "val_1",
+        model_type: "relative_valuation",
+        scenario_name: "base",
+        results: { models: [] },
+        sensitivity: { table: [] },
+        evidence: {},
+        not_investment_advice: true,
+      });
+    });
+
+    await getCompanyPeers("600519");
+    await getCompanyPeerMetrics("600519");
+    const valuation = await getCompanyValuation("600519", "dcf_owner_earnings");
+    await getScreenerPresets();
+    await saveScreenerPreset("stage5", { include_missing: true });
+
+    expect(calls.map((call) => call.url).join("\n")).toContain("/v1/companies/600519/peers");
+    expect(calls.map((call) => call.url).join("\n")).toContain("model_type=dcf_owner_earnings");
+    expect(screenerExportUrl("csv")).toContain("/v1/screener/export?fmt=csv");
+    expect(JSON.stringify(valuation).toLowerCase()).not.toMatch(/target price|买入|卖出|持有/);
   });
 });
 

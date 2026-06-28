@@ -5,13 +5,19 @@ import {
   getCompanyBenchmark,
   getCompanyCharts,
   getCompanyFilings,
+  getCompanyPeerMetrics,
+  getCompanyPeers,
   getCompanySummary,
+  getCompanyValuation,
   getDataQualityIssues,
   getDataQualitySummary,
   type AnalysisReport,
   type CompanySummary,
   type FilingRecord,
   type MarketChart,
+  type PeerMetricsResponse,
+  type PeerSetResponse,
+  type ValuationResponse,
 } from "@/lib/api";
 import { SyncButton } from "@/features/SyncButton";
 import { ResearchRuns } from "@/features/ResearchRuns";
@@ -26,6 +32,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
   let qualitySummary: Record<string, unknown> | null = null;
   let qualityIssues: Array<Record<string, unknown>> = [];
   let analysis: AnalysisReport | null = null;
+  let peers: PeerSetResponse | null = null;
+  let peerMetrics: PeerMetricsResponse | null = null;
+  let relativeValuation: ValuationResponse | null = null;
+  let dcfValuation: ValuationResponse | null = null;
   const results = await Promise.allSettled([
     getCompanySummary(symbol),
     getCompanyCharts(symbol),
@@ -34,6 +44,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
     getDataQualitySummary(),
     getDataQualityIssues(),
     getCompanyAnalysis(symbol),
+    getCompanyPeers(symbol),
+    getCompanyPeerMetrics(symbol),
+    getCompanyValuation(symbol, "relative_valuation"),
+    getCompanyValuation(symbol, "dcf_owner_earnings"),
   ] as const);
   summary = settledValue(results[0], null);
   charts = settledValue(results[1], []);
@@ -42,6 +56,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
   qualitySummary = settledValue(results[4], null);
   qualityIssues = settledValue(results[5], []);
   analysis = settledValue(results[6], null);
+  peers = settledValue(results[7], null);
+  peerMetrics = settledValue(results[8], null);
+  relativeValuation = settledValue(results[9], null);
+  dcfValuation = settledValue(results[10], null);
   const partialFailures = results.filter((result) => result.status === "rejected").length;
 
   return (
@@ -261,6 +279,94 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
             <EmptyState text="专业分析暂不可用；公司不存在或本地数据不足时会显示结构化缺失状态。" />
           )}
         </Card>
+        <Card title="Peers">
+          {peers ? (
+            <div className="space-y-3">
+              <KeyValueGrid
+                items={[
+                  ["同业数量", peers.selected_symbols.length],
+                  ["质量状态", peers.quality_flags.length ? peers.quality_flags.join("；") : "available"],
+                  ["版本", String(peers.as_of_date)],
+                  ["来源", "local company metadata"],
+                ]}
+              />
+              {peers.candidates.length ? (
+                <div className="max-h-72 overflow-auto rounded border border-line">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">代码</th>
+                        <th className="px-3 py-2">行业</th>
+                        <th className="px-3 py-2">相似度</th>
+                        <th className="px-3 py-2">原因</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {peers.candidates.map((candidate) => (
+                        <tr key={String(candidate.symbol)} className="border-t border-line">
+                          <td className="px-3 py-2 font-medium text-accent">{String(candidate.symbol)}</td>
+                          <td className="px-3 py-2">{String(candidate.industry ?? "missing")}</td>
+                          <td className="px-3 py-2">{formatValue(candidate.similarity_score)}</td>
+                          <td className="px-3 py-2">{String(candidate.reason ?? "missing")}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState text="同业数据不足：需要本地公司行业、交易所和结构化财务事实。" />
+              )}
+              {peers.limitations.length ? <p className="text-xs text-slate-500">{peers.limitations.join("；")}</p> : null}
+            </div>
+          ) : (
+            <EmptyState text="Peers section 暂不可用；公司不存在或行业元数据不足。" />
+          )}
+        </Card>
+        <Card title="Peer Metrics Matrix">
+          {peerMetrics?.rows?.length ? (
+            <div className="space-y-3">
+              <div className="max-h-80 overflow-auto rounded border border-line">
+                <table className="w-full min-w-[760px] text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">代码</th>
+                      {peerMetrics.columns.slice(0, 7).map((column) => (
+                        <th key={column} className="px-3 py-2">{formatMetricLabel(column)}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {peerMetrics.rows.slice(0, 8).map((row) => {
+                      const metrics = row.metrics as Record<string, Record<string, unknown>> | undefined;
+                      return (
+                        <tr key={String(row.symbol)} className="border-t border-line">
+                          <td className="px-3 py-2 font-medium text-accent">{String(row.symbol)}</td>
+                          {peerMetrics.columns.slice(0, 7).map((column) => (
+                            <td key={column} className="px-3 py-2">
+                              {formatMetricCell(metrics?.[column])}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-500">异常值规则：{peerMetrics.outlier_policy}；缺失值不参与排名和分位。</p>
+            </div>
+          ) : (
+            <EmptyState text="Peer Metrics Matrix 暂无可展示数据；不会用模拟公司或空值补齐。" />
+          )}
+        </Card>
+        <Card title="Valuation Lab">
+          <div className="space-y-4">
+            <p className="rounded border border-line bg-slate-50 p-3 text-sm text-slate-700">
+              估值情景范围、相对分位和敏感性分析仅用于研究核验，不是投资建议。
+            </p>
+            <ValuationBlock title="Relative Valuation" valuation={relativeValuation} />
+            <ValuationBlock title="DCF / Owner Earnings Scenario" valuation={dcfValuation} />
+          </div>
+        </Card>
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -269,6 +375,32 @@ export default async function CompanyPage({ params }: { params: Promise<{ symbol
         ))}
       </div>
     </main>
+  );
+}
+
+function ValuationBlock({ title, valuation }: { title: string; valuation: ValuationResponse | null }) {
+  if (!valuation) return <EmptyState text={`${title} 暂不可用：本地证据或现金流历史不足。`} />;
+  const status = getNestedString(valuation.results, ["status"]) ?? getNestedString(valuation.results, ["models", "0", "status"]) ?? "calculated";
+  const sensitivity = Array.isArray(valuation.sensitivity?.table) ? valuation.sensitivity.table.length : 0;
+  return (
+    <div className="rounded border border-line bg-white p-3 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-medium text-slate-900">{title}</div>
+          <div className="mt-1 text-xs text-slate-500">{valuation.model_type} · {valuation.scenario_name} · {valuation.as_of_date}</div>
+        </div>
+        <span className="rounded border border-line bg-slate-50 px-2 py-1 text-xs">{status}</span>
+      </div>
+      <KeyValueGrid
+        items={[
+          ["估值情景范围", summarizeValuationRange(valuation.results)],
+          ["相对分位", summarizeRelativePercentile(valuation.results)],
+          ["敏感性分析", sensitivity ? `${sensitivity} cells` : "insufficient_data"],
+          ["不是投资建议", valuation.not_investment_advice ? "true" : "false"],
+        ]}
+      />
+      {valuation.limitations?.length ? <p className="mt-3 text-xs text-slate-500">{valuation.limitations.join("；")}</p> : null}
+    </div>
   );
 }
 
@@ -346,6 +478,50 @@ function formatValue(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString("zh-CN") : "无数据";
   if (typeof value === "string") return value;
   return JSON.stringify(value);
+}
+
+function formatMetricCell(cell: Record<string, unknown> | undefined) {
+  if (!cell) return "missing";
+  if (cell.quality_status === "not_applicable") return "not_applicable";
+  const value = cell.value;
+  if (typeof value === "number") {
+    const suffix = cell.percentile ? ` · P${Math.round(Number(cell.percentile) * 100)}` : "";
+    return `${value.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}${suffix}`;
+  }
+  return String(cell.missing_reason ?? "missing_data");
+}
+
+function getNestedString(record: Record<string, unknown>, path: string[]) {
+  let current: unknown = record;
+  for (const key of path) {
+    if (Array.isArray(current)) {
+      current = current[Number(key)];
+    } else if (current && typeof current === "object") {
+      current = (current as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  return typeof current === "string" ? current : undefined;
+}
+
+function summarizeRelativePercentile(results: Record<string, unknown>) {
+  const models = results.models;
+  if (!Array.isArray(models)) return "insufficient_data";
+  const first = models.find((item) => item && typeof item === "object" && typeof (item as Record<string, unknown>).peer_percentile === "number") as Record<string, unknown> | undefined;
+  return first ? `${String(first.metric_code)} P${Math.round(Number(first.peer_percentile) * 100)}` : "insufficient_data";
+}
+
+function summarizeValuationRange(results: Record<string, unknown>) {
+  const dcfResults = results.results;
+  if (dcfResults && typeof dcfResults === "object") {
+    const ev = (dcfResults as Record<string, unknown>).enterprise_value_range;
+    if (ev && typeof ev === "object") {
+      const base = (ev as Record<string, unknown>).base;
+      return typeof base === "number" ? base.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) : "insufficient_data";
+    }
+  }
+  return "scenario range only";
 }
 
 function compactJson(value: unknown) {
