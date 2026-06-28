@@ -8,11 +8,9 @@ Updated: 2026-06-28
 - Stage 2 status: PASS locally for final metric integrity, canonical price series, and common TTM windows.
 - Stage 3 status: PASS. Stage 3 is merged into `main`; GitHub Actions run `28295527902` for `8b08189f8a0ee1d7aaaa12870231ccbceab86dec` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 4 status: PASS. Stage 4 is merged into `main`; GitHub Actions run `28318788762` for `5a4c42916308e8d18e74c62f3820fd45c20e86f4` completed success for backend, frontend, and e2e on 2026-06-28.
-- Stage 5 status: IN_PROGRESS on branch `feature/stage-5-peers-screener-valuation`.
-- Current branch: feature/stage-5-peers-screener-valuation.
-- Current Stage 5 base: `5a4c42916308e8d18e74c62f3820fd45c20e86f4`.
-- origin/main at Stage 5 start: `5a4c42916308e8d18e74c62f3820fd45c20e86f4`.
-- GitHub Actions true status for Stage 5: UNVERIFIED until this branch is pushed and backend, frontend, and e2e jobs complete.
+- Stage 5 status: PASS. Stage 5 is merged into `main`; GitHub Actions run `28326223624` for `b2612924a105feec0ddcf1b0a4c467ba7777bfdc` completed success for backend, frontend, and e2e on 2026-06-28.
+- Current branch: main.
+- Current main head: `b2612924a105feec0ddcf1b0a4c467ba7777bfdc`.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -88,14 +86,12 @@ Updated: 2026-06-28
 
 ## Known Limitations
 
-- Stage 5 GitHub Actions status is UNVERIFIED until the branch is pushed and checked.
 - Current API price analytics route does not yet infer benchmark series automatically; benchmark metrics return missing unless a caller supplies aligned benchmark inputs to the service.
 - Currency enforcement is strict for financial period normalization; market-cap currency conversion is not attempted.
 - npm audit high-severity gate passes; moderate findings remain in Next's transitive PostCSS dependency unless upstream provides a non-breaking fix.
-
-## Stage 5 Todo
-
-- Complete local quality gates and push Stage 5 branch.
-- Observe GitHub Actions backend, frontend, and e2e.
 - SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.
+
+## Stage 6 Handoff
+
+- Stage 6 may build on the merged Stage 5 peer set, screener, valuation, assumptions, sensitivity, evidence lineage, and no-target-price guard.
