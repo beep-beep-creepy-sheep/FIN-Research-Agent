@@ -7,11 +7,12 @@ Updated: 2026-06-28
 - Stage 1 status: PASS.
 - Stage 2 status: PASS locally for final metric integrity, canonical price series, and common TTM windows.
 - Stage 3 status: PASS. Stage 3 is merged into `main`; GitHub Actions run `28295527902` for `8b08189f8a0ee1d7aaaa12870231ccbceab86dec` completed success for backend, frontend, and e2e on 2026-06-28.
-- Stage 4 status: IN_PROGRESS on branch `feature/stage-4-professional-analysis`.
-- Current branch: feature/stage-4-professional-analysis.
-- Current Stage 4 base: `8b08189f8a0ee1d7aaaa12870231ccbceab86dec`.
-- origin/main at Stage 4 start: `8b08189f8a0ee1d7aaaa12870231ccbceab86dec`.
-- GitHub Actions true status for Stage 4: UNVERIFIED until this branch is pushed and backend, frontend, and e2e jobs complete.
+- Stage 4 status: PASS. Stage 4 is merged into `main`; GitHub Actions run `28318788762` for `5a4c42916308e8d18e74c62f3820fd45c20e86f4` completed success for backend, frontend, and e2e on 2026-06-28.
+- Stage 5 status: IN_PROGRESS on branch `feature/stage-5-peers-screener-valuation`.
+- Current branch: feature/stage-5-peers-screener-valuation.
+- Current Stage 5 base: `5a4c42916308e8d18e74c62f3820fd45c20e86f4`.
+- origin/main at Stage 5 start: `5a4c42916308e8d18e74c62f3820fd45c20e86f4`.
+- GitHub Actions true status for Stage 5: UNVERIFIED until this branch is pushed and backend, frontend, and e2e jobs complete.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -74,15 +75,27 @@ Updated: 2026-06-28
 - Frontend: company page Professional Analysis panel with partial failure handling and insufficient-data state.
 - Non-goals preserved: no target price, no trading signal, no broker login, no automatic order placement, no paid API dependency.
 
+## Stage 5 Peers / Screener / Valuation State
+
+- Peer set service: implemented. It uses local industry, exchange, listing-board signals and manual overrides; unknown industry returns `insufficient_peer_data`; banks are not mixed with manufacturing or consumer peers.
+- Peer metrics matrix: implemented with rank, percentile, z-score, missing reasons, not-applicable states, and explicit outlier policy.
+- Screener: enhanced with market, exchange, industry, board, growth, margin, ROE, ROIC, FCF yield, leverage, valuation filters, include-missing behavior, presets, and JSON/CSV export.
+- Relative valuation: implemented for PE TTM, EV/EBITDA, FCF yield, PB, and PS where local data supports them.
+- DCF / owner earnings scenario: implemented with bounded assumptions, base/bear/bull support, sensitivity tables, evidence, limitations, and per-share output only when shares outstanding is locally available.
+- Persistence: peer sets, peer members, valuation runs, valuation assumptions, and screen presets are modeled and covered by Alembic revision `0005_stage5_peers`.
+- Frontend: company page includes Peers, Peer Metrics Matrix, and Valuation Lab sections; screener includes expanded filters, missing-data status, presets, and export.
+- Guardrails: no broker login, no automatic trading, no promised returns, no buy/sell/hold output, and no target price output.
+
 ## Known Limitations
 
-- Stage 4 GitHub Actions status is UNVERIFIED until the branch is pushed and checked.
+- Stage 5 GitHub Actions status is UNVERIFIED until the branch is pushed and checked.
 - Current API price analytics route does not yet infer benchmark series automatically; benchmark metrics return missing unless a caller supplies aligned benchmark inputs to the service.
 - Currency enforcement is strict for financial period normalization; market-cap currency conversion is not attempted.
 - npm audit high-severity gate passes; moderate findings remain in Next's transitive PostCSS dependency unless upstream provides a non-breaking fix.
 
-## Stage 4 Todo
+## Stage 5 Todo
 
-- Push Stage 4 branch and observe GitHub Actions backend, frontend, and e2e.
+- Complete local quality gates and push Stage 5 branch.
+- Observe GitHub Actions backend, frontend, and e2e.
 - SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.

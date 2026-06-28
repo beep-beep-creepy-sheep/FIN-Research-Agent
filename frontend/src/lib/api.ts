@@ -3,7 +3,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"
 export const API_ROUTES = {
   companyCharts: (symbol: string) => `/v1/companies/${symbol}/charts`,
   companyChartAlias: (symbol: string) => `/v1/companies/${symbol}/chart`,
+  companyPeers: (symbol: string) => `/v1/companies/${symbol}/peers`,
+  companyPeerMetrics: (symbol: string) => `/v1/companies/${symbol}/peer-metrics`,
+  companyValuation: (symbol: string) => `/v1/companies/${symbol}/valuation`,
   screenerQuery: "/v1/screener/query",
+  screenerPresets: "/v1/screener/presets",
+  screenerExport: "/v1/screener/export",
   screensQueryAlias: "/v1/screens/query",
 } as const;
 
@@ -118,6 +123,36 @@ export type AnalysisReport = {
   analysis_version: string;
 };
 
+export type PeerSetResponse = {
+  symbol: string;
+  as_of_date: string;
+  selected_symbols: string[];
+  quality_flags: string[];
+  limitations: string[];
+  candidates: Array<Record<string, unknown>>;
+};
+
+export type PeerMetricsResponse = {
+  symbol: string;
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+  outlier_policy: string;
+  limitations: string[];
+};
+
+export type ValuationResponse = {
+  valuation_run_id: string;
+  symbol: string;
+  as_of_date: string;
+  model_type: string;
+  scenario_name: string;
+  results: Record<string, unknown>;
+  sensitivity?: Record<string, unknown> | null;
+  evidence?: Record<string, unknown>;
+  limitations: string[];
+  not_investment_advice: boolean;
+};
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -203,6 +238,33 @@ export function queryScreener(filters: Record<string, unknown>): Promise<Record<
     method: "POST",
     body: JSON.stringify(filters),
   });
+}
+
+export function screenerExportUrl(fmt = "csv") {
+  return `${API_BASE}${API_ROUTES.screenerExport}?fmt=${encodeURIComponent(fmt)}`;
+}
+
+export function getScreenerPresets(): Promise<Array<Record<string, unknown>>> {
+  return fetchJson<Array<Record<string, unknown>>>(API_ROUTES.screenerPresets);
+}
+
+export function saveScreenerPreset(name: string, filters: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(API_ROUTES.screenerPresets, {
+    method: "POST",
+    body: JSON.stringify({ name, filters }),
+  });
+}
+
+export function getCompanyPeers(symbol: string): Promise<PeerSetResponse> {
+  return fetchJson<PeerSetResponse>(API_ROUTES.companyPeers(symbol));
+}
+
+export function getCompanyPeerMetrics(symbol: string): Promise<PeerMetricsResponse> {
+  return fetchJson<PeerMetricsResponse>(API_ROUTES.companyPeerMetrics(symbol));
+}
+
+export function getCompanyValuation(symbol: string, modelType = "relative_valuation"): Promise<ValuationResponse> {
+  return fetchJson<ValuationResponse>(`${API_ROUTES.companyValuation(symbol)}?model_type=${encodeURIComponent(modelType)}`);
 }
 
 export function getCompanyFilings(symbol: string): Promise<FilingRecord[]> {

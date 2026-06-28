@@ -19,8 +19,10 @@ test("screener can query local financial facts", async ({ page }) => {
   await page.goto("/screener");
   await expect(page.getByRole("heading", { name: "股票筛选器" })).toBeVisible();
   await page.getByPlaceholder("最低净利率，%").fill("20");
+  await page.getByLabel("include_missing").check();
   await page.getByRole("button", { name: "运行筛选" }).click();
   await expect(page.getByText(/返回 \d+ 条，本地来源：financial_facts/)).toBeVisible();
+  await expect(page.getByText("导出 CSV")).toBeVisible();
 });
 
 test("company page shows chart suite empty and real financial chart states", async ({ page }) => {
@@ -30,6 +32,10 @@ test("company page shows chart suite empty and real financial chart states", asy
   await expect(page.getByText("本地数据库里还没有该公司的财务期间数据。")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Professional Analysis" })).toBeVisible();
   await expect(page.getByText(/专业分析暂不可用|deterministic findings|explicit missing-data findings/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Peers" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Peer Metrics Matrix" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Valuation Lab" })).toBeVisible();
+  await expect(page.getByText("估值情景范围、相对分位和敏感性分析仅用于研究核验，不是投资建议。")).toBeVisible();
   await expect(page.getByText("K线与成交量")).toBeVisible();
   await expect(page.getByText("收入 / 净利润 / 经营现金流")).toBeVisible();
   await expect(page.getByText("价格来自本地 prices 表；抓取失败时不生成替代行情。")).toBeVisible();

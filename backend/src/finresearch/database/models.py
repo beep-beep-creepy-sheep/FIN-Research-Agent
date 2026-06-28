@@ -478,6 +478,86 @@ class MetricObservation(Base):
     calculated_at: Mapped[str] = mapped_column(String(64))
 
 
+class PeerSet(Base):
+    __tablename__ = "peer_sets"
+    __table_args__ = (UniqueConstraint("symbol", "as_of_date", "peer_set_hash", name="uq_peer_set_hash"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    as_of_date: Mapped[str] = mapped_column(String(32), index=True)
+    peer_set_hash: Mapped[str] = mapped_column(String(128), index=True)
+    selection_method: Mapped[str] = mapped_column(String(64), default="auto")
+    quality_flags: Mapped[list[str] | None] = mapped_column(JSON)
+    limitations: Mapped[list[str] | None] = mapped_column(JSON)
+    version: Mapped[str] = mapped_column(String(64), default="stage5-peer-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PeerSetMember(Base):
+    __tablename__ = "peer_set_members"
+    __table_args__ = (UniqueConstraint("peer_set_id", "symbol", name="uq_peer_set_member"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    peer_set_id: Mapped[int] = mapped_column(ForeignKey("peer_sets.id", ondelete="CASCADE"), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str | None] = mapped_column(String(255))
+    exchange: Mapped[str | None] = mapped_column(String(32))
+    industry: Mapped[str | None] = mapped_column(String(255))
+    sector: Mapped[str | None] = mapped_column(String(255))
+    market_cap: Mapped[float | None] = mapped_column(Float)
+    revenue: Mapped[float | None] = mapped_column(Float)
+    selected: Mapped[bool] = mapped_column(Boolean, default=True)
+    reason: Mapped[str | None] = mapped_column(Text)
+    similarity_score: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(64), default="auto")
+    limitations: Mapped[list[str] | None] = mapped_column(JSON)
+
+
+class ValuationRun(Base):
+    __tablename__ = "valuation_runs"
+    __table_args__ = (UniqueConstraint("run_id", name="uq_valuation_run_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(128), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    as_of_date: Mapped[str] = mapped_column(String(32), index=True)
+    model_type: Mapped[str] = mapped_column(String(64), index=True)
+    scenario: Mapped[str] = mapped_column(String(64), index=True)
+    assumption_hash: Mapped[str] = mapped_column(String(128), index=True)
+    input_hash: Mapped[str] = mapped_column(String(128), index=True)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    evidence_json: Mapped[dict | None] = mapped_column(JSON)
+    limitations_json: Mapped[list[str] | None] = mapped_column(JSON)
+    valuation_version: Mapped[str] = mapped_column(String(64), default="stage5-valuation-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ValuationAssumption(Base):
+    __tablename__ = "valuation_assumptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    assumption_set_id: Mapped[str] = mapped_column(String(128), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    model_type: Mapped[str] = mapped_column(String(64), index=True)
+    scenario: Mapped[str] = mapped_column(String(64), index=True)
+    assumptions_json: Mapped[dict] = mapped_column(JSON)
+    created_by: Mapped[str] = mapped_column(String(64), default="system")
+    source: Mapped[str] = mapped_column(String(64), default="default")
+    version: Mapped[str] = mapped_column(String(64), default="stage5-assumptions-v1")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ScreenPreset(Base):
+    __tablename__ = "screen_presets"
+    __table_args__ = (UniqueConstraint("name", name="uq_screen_preset_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    filters_json: Mapped[dict] = mapped_column(JSON)
+    created_by: Mapped[str] = mapped_column(String(64), default="local_user")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class MarketSnapshot(Base):
     __tablename__ = "market_snapshots"
     __table_args__ = (UniqueConstraint("market", "snapshot_date", "data_source", name="uq_market_snapshot"),)
