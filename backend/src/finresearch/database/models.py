@@ -624,6 +624,132 @@ class AIPromptAudit(Base):
     report_run: Mapped[ReportRun | None] = relationship(back_populates="prompt_audits")
 
 
+class Portfolio(Base):
+    __tablename__ = "portfolios"
+    __table_args__ = (UniqueConstraint("name", name="uq_portfolio_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), index=True)
+    description: Mapped[str | None] = mapped_column(Text)
+    base_currency: Mapped[str] = mapped_column(String(16), default="CNY")
+    portfolio_type: Mapped[str] = mapped_column(String(64), default="watchlist")
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    holdings: Mapped[list[PortfolioHolding]] = relationship(back_populates="portfolio")
+    watch_items: Mapped[list[PortfolioWatchItem]] = relationship(back_populates="portfolio")
+    alert_rules: Mapped[list[PortfolioAlertRule]] = relationship(back_populates="portfolio")
+
+
+class PortfolioHolding(Base):
+    __tablename__ = "portfolio_holdings"
+    __table_args__ = (UniqueConstraint("portfolio_id", "symbol", name="uq_portfolio_holding_symbol"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    quantity: Mapped[float | None] = mapped_column(Float)
+    cost_basis: Mapped[float | None] = mapped_column(Float)
+    cost_currency: Mapped[str | None] = mapped_column(String(16))
+    position_date: Mapped[str | None] = mapped_column(String(32))
+    weight_override: Mapped[float | None] = mapped_column(Float)
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(64), default="manual")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    portfolio: Mapped[Portfolio] = relationship(back_populates="holdings")
+
+
+class PortfolioWatchItem(Base):
+    __tablename__ = "portfolio_watch_items"
+    __table_args__ = (UniqueConstraint("portfolio_id", "symbol", name="uq_portfolio_watch_symbol"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    thesis: Mapped[str | None] = mapped_column(Text)
+    interest_level: Mapped[str | None] = mapped_column(String(64))
+    tags: Mapped[list[str] | None] = mapped_column(JSON)
+    added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    portfolio: Mapped[Portfolio] = relationship(back_populates="watch_items")
+
+
+class PortfolioSnapshot(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    snapshot_date: Mapped[str] = mapped_column(String(32), index=True)
+    summary_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PortfolioRiskRun(Base):
+    __tablename__ = "portfolio_risk_runs"
+    __table_args__ = (UniqueConstraint("run_id", name="uq_portfolio_risk_run_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(128), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    as_of_date: Mapped[str] = mapped_column(String(32), index=True)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class PortfolioAlertRule(Base):
+    __tablename__ = "portfolio_alert_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    symbol: Mapped[str | None] = mapped_column(String(32), index=True)
+    rule_type: Mapped[str] = mapped_column(String(64), index=True)
+    metric_code: Mapped[str | None] = mapped_column(String(128))
+    threshold: Mapped[float | None] = mapped_column(Float)
+    direction: Mapped[str | None] = mapped_column(String(32))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    severity: Mapped[str] = mapped_column(String(64), default="medium")
+    last_evaluated_at: Mapped[str | None] = mapped_column(String(64))
+    last_triggered_at: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    portfolio: Mapped[Portfolio] = relationship(back_populates="alert_rules")
+
+
+class PortfolioAlertEvent(Base):
+    __tablename__ = "portfolio_alert_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rule_id: Mapped[int | None] = mapped_column(ForeignKey("portfolio_alert_rules.id", ondelete="SET NULL"), index=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    symbol: Mapped[str | None] = mapped_column(String(32), index=True)
+    triggered_at: Mapped[str] = mapped_column(String(64), index=True)
+    message: Mapped[str] = mapped_column(Text)
+    evidence_json: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(64), default="new", index=True)
+    severity: Mapped[str] = mapped_column(String(64), default="medium")
+
+
+class PortfolioCalendarEvent(Base):
+    __tablename__ = "portfolio_calendar_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    portfolio_id: Mapped[int | None] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), index=True)
+    symbol: Mapped[str | None] = mapped_column(String(32), index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    event_date: Mapped[str] = mapped_column(String(32), index=True)
+    source: Mapped[str] = mapped_column(String(128), default="manual")
+    filing_id: Mapped[int | None] = mapped_column(ForeignKey("filings.id", ondelete="SET NULL"))
+    report_run_id: Mapped[int | None] = mapped_column(ForeignKey("report_runs.id", ondelete="SET NULL"))
+    notes: Mapped[str | None] = mapped_column(Text)
+    severity: Mapped[str] = mapped_column(String(64), default="medium")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class MarketSnapshot(Base):
     __tablename__ = "market_snapshots"
     __table_args__ = (UniqueConstraint("market", "snapshot_date", "data_source", name="uq_market_snapshot"),)

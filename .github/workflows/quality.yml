@@ -29,6 +29,8 @@ jobs:
         run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage5_peers_valuation.py
       - name: Stage 6 institutional report tests
         run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage6_reports.py
+      - name: Stage 7 portfolio risk alerts tests
+        run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage7_portfolio_risk_alerts.py
       - name: Python type check
         run: PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch
       - name: Alembic empty SQLite upgrade
