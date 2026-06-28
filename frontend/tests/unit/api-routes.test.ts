@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   API_ROUTES,
+  createCompanyReport,
   createResearchRun,
   getAiStatus,
   getCompanyAnalysis,
@@ -13,6 +14,8 @@ import {
   getMarketOverview,
   getScreenerPresets,
   queryScreener,
+  reportHtmlUrl,
+  reportMarkdownUrl,
   saveScreenerPreset,
   screenerExportUrl,
 } from "../../src/lib/api";
@@ -40,6 +43,9 @@ describe("frontend API route contract", () => {
     expect(API_ROUTES.companyPeers("600519")).toBe("/v1/companies/600519/peers");
     expect(API_ROUTES.companyPeerMetrics("600519")).toBe("/v1/companies/600519/peer-metrics");
     expect(API_ROUTES.companyValuation("600519")).toBe("/v1/companies/600519/valuation");
+    expect(API_ROUTES.companyReport("600519")).toBe("/v1/companies/600519/report");
+    expect(API_ROUTES.companyReportRuns("600519")).toBe("/v1/companies/600519/report/runs");
+    expect(API_ROUTES.reportValidation("report_1")).toBe("/v1/report-runs/report_1/validation");
     expect(API_ROUTES.screenerQuery).toBe("/v1/screener/query");
     expect(API_ROUTES.screenerPresets).toBe("/v1/screener/presets");
     expect(API_ROUTES.screenerExport).toBe("/v1/screener/export");
@@ -267,6 +273,44 @@ describe("frontend API route contract", () => {
     expect(calls.map((call) => call.url).join("\n")).toContain("model_type=dcf_owner_earnings");
     expect(screenerExportUrl("csv")).toContain("/v1/screener/export?fmt=csv");
     expect(JSON.stringify(valuation).toLowerCase()).not.toMatch(/target price|买入|卖出|持有/);
+  });
+
+  it("creates institutional reports and exposes export URLs", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return jsonResponse(200, {
+        run_id: "report_1",
+        symbol: "600519",
+        as_of_date: "2026-06-28",
+        strict_as_of: true,
+        report_style: "institutional_full",
+        language: "en",
+        sections: [],
+        validation: { status: "passed" },
+        evidence_coverage: { available_evidence_count: 1, referenced_evidence_count: 1 },
+        warnings: [],
+        limitations: [],
+        llm: { status: "deterministic_fallback" },
+        bundle_hash: "bundle",
+        report_hash: "report",
+        generated_at: "2026-06-28T00:00:00Z",
+        report_version: "stage6-report-v1",
+      });
+    });
+
+    const report = await createCompanyReport("600519", {
+      strict_as_of: true,
+      include_ai: false,
+      include_evidence: true,
+      language: "en",
+    });
+
+    expect(report.validation.status).toBe("passed");
+    expect(JSON.parse(String(calls[0].init?.body))).toMatchObject({ strict_as_of: true, include_ai: false });
+    expect(calls[0].url).toContain("/v1/companies/600519/report");
+    expect(reportMarkdownUrl("report_1")).toContain("/v1/report-runs/report_1/markdown");
+    expect(reportHtmlUrl("report_1")).toContain("/v1/report-runs/report_1/html");
   });
 });
 

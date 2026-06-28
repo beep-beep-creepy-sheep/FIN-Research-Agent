@@ -558,6 +558,72 @@ class ScreenPreset(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class ReportRun(Base):
+    __tablename__ = "report_runs"
+    __table_args__ = (UniqueConstraint("run_id", name="uq_report_run_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(128), index=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    as_of_date: Mapped[str] = mapped_column(String(32), index=True)
+    strict_as_of: Mapped[bool] = mapped_column(Boolean, default=False)
+    report_style: Mapped[str] = mapped_column(String(64), default="institutional_full")
+    language: Mapped[str] = mapped_column(String(16), default="en")
+    bundle_hash: Mapped[str] = mapped_column(String(128), index=True)
+    report_hash: Mapped[str] = mapped_column(String(128), index=True)
+    report_version: Mapped[str] = mapped_column(String(64), default="stage6-report-v1")
+    status: Mapped[str] = mapped_column(String(64), default="completed", index=True)
+    llm_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    llm_provider: Mapped[str | None] = mapped_column(String(64))
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    validation_status: Mapped[str] = mapped_column(String(64), default="passed", index=True)
+    result_json: Mapped[dict] = mapped_column(JSON)
+    markdown: Mapped[str | None] = mapped_column(Text)
+    html: Mapped[str | None] = mapped_column(Text)
+    validation_json: Mapped[dict | None] = mapped_column(JSON)
+    evidence_json: Mapped[dict | None] = mapped_column(JSON)
+    limitations_json: Mapped[list[str] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    sections: Mapped[list[ReportSection]] = relationship(back_populates="report_run")
+    prompt_audits: Mapped[list[AIPromptAudit]] = relationship(back_populates="report_run")
+
+
+class ReportSection(Base):
+    __tablename__ = "report_sections"
+    __table_args__ = (UniqueConstraint("report_run_id", "section_id", name="uq_report_section"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_run_id: Mapped[int] = mapped_column(ForeignKey("report_runs.id", ondelete="CASCADE"), index=True)
+    section_id: Mapped[str] = mapped_column(String(128), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    status: Mapped[str] = mapped_column(String(64), default="completed")
+    generated_by: Mapped[str] = mapped_column(String(64), default="deterministic_python")
+    validation_status: Mapped[str] = mapped_column(String(64), default="passed")
+    content_json: Mapped[dict] = mapped_column(JSON)
+    evidence_ids_json: Mapped[list[str] | None] = mapped_column(JSON)
+    limitations_json: Mapped[list[str] | None] = mapped_column(JSON)
+
+    report_run: Mapped[ReportRun] = relationship(back_populates="sections")
+
+
+class AIPromptAudit(Base):
+    __tablename__ = "ai_prompt_audits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    report_run_id: Mapped[int | None] = mapped_column(ForeignKey("report_runs.id", ondelete="CASCADE"), index=True)
+    section_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    prompt_hash: Mapped[str] = mapped_column(String(128), index=True)
+    response_hash: Mapped[str | None] = mapped_column(String(128))
+    provider: Mapped[str | None] = mapped_column(String(64))
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    validation_status: Mapped[str] = mapped_column(String(64), default="not_used")
+    unsupported_claims_json: Mapped[list[str] | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    report_run: Mapped[ReportRun | None] = relationship(back_populates="prompt_audits")
+
+
 class MarketSnapshot(Base):
     __tablename__ = "market_snapshots"
     __table_args__ = (UniqueConstraint("market", "snapshot_date", "data_source", name="uq_market_snapshot"),)

@@ -9,8 +9,9 @@ Updated: 2026-06-28
 - Stage 3 status: PASS. Stage 3 is merged into `main`; GitHub Actions run `28295527902` for `8b08189f8a0ee1d7aaaa12870231ccbceab86dec` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 4 status: PASS. Stage 4 is merged into `main`; GitHub Actions run `28318788762` for `5a4c42916308e8d18e74c62f3820fd45c20e86f4` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 5 status: PASS. Stage 5 is merged into `main`; GitHub Actions run `28326223624` for `b2612924a105feec0ddcf1b0a4c467ba7777bfdc` completed success for backend, frontend, and e2e on 2026-06-28.
-- Current branch: main.
-- Current main head: `b2612924a105feec0ddcf1b0a4c467ba7777bfdc`.
+- Stage 6 status: PASS_LOCAL on `feature/stage-6-ai-orchestration-reporting`; GitHub Actions UNVERIFIED for Stage 6 until the feature branch/PR runs CI.
+- Current branch: `feature/stage-6-ai-orchestration-reporting`.
+- Current main head: `a4bd334446ef69a8dbd6464893b7c155f841f125`.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -84,14 +85,41 @@ Updated: 2026-06-28
 - Frontend: company page includes Peers, Peer Metrics Matrix, and Valuation Lab sections; screener includes expanded filters, missing-data status, presets, and export.
 - Guardrails: no broker login, no automatic trading, no promised returns, no buy/sell/hold output, and no target price output.
 
+## Stage 6 AI Orchestration / Institutional Report State
+
+- Research evidence bundle: implemented. It combines local company metadata, financial facts, prices, professional analysis, peer sets, peer metrics, valuation runs, filings, documents, data-quality issues, prompt-injection flags, and evidence IDs with deterministic bundle hashes.
+- Deterministic report builder: implemented with sections for metadata, executive summary, company profile, financial analysis, industry-pack analysis, peer comparison, valuation lab, risk/data quality, evidence appendix, methodology, and disclaimers.
+- AI orchestration boundary: implemented for optional local Ollama-compatible narration. LLM usage defaults off and deterministic fallback is used when disabled, unavailable, blocked by prompt-injection risk, or rejected by validation.
+- Report validation: implemented with evidence ID checks, local path leak checks, prompt-injection warnings, and forbidden wording rejection before persistence.
+- Persistence: report runs, sections, and prompt audit records are modeled and covered by Alembic revision `0006_stage6_reports`.
+- API: `/v1/companies/{symbol}/report`, `/report/latest`, `/report/runs`, `/v1/report-runs/{run_id}`, `/markdown`, `/html`, `/validation`, `/evidence`, and `/regenerate-section`.
+- Frontend: company page includes an Institutional Report panel with deterministic/AI toggle, strict-as-of toggle, language selector, section selector, validation status, evidence coverage, report preview, Markdown export, HTML print view, and warning states.
+- Guardrails: no broker login, no automatic trading, no promised returns, no target price output, no model-created financial facts, and no model-created citations.
+- Verification status: local quality gates pass on 2026-06-28; GitHub Actions are not yet verified for this branch.
+
+## Stage 6 Local Gates Run
+
+- Python tests: PASS, `PYTHONPATH=.:backend/src pytest -q`, 140 passed.
+- Focused Stage 6 tests: PASS, `PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage6_reports.py`, 5 passed.
+- Ruff: PASS, `ruff check .`.
+- Python type check: PASS, `PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch`, 98 files, 0 errors.
+- Frontend tests: PASS, `cd frontend && npm test`, 15 passed.
+- Frontend TypeScript: PASS, `cd frontend && npx tsc --noEmit`.
+- Frontend build: PASS, `cd frontend && npm run build`.
+- Playwright Chromium: PASS, `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 ... npm run test:e2e -- --project=chromium`, 5 passed.
+- SQLite Alembic empty upgrade and repeated upgrade: PASS through `0006_stage6_reports`.
+- PostgreSQL migration verification: BLOCKED_LOCAL_TOOLING, `pg_isready` and `psql` are not installed in this local environment.
+- FastAPI/report API smoke: PASS, health endpoint, report generation, and Markdown export validated through `TestClient`.
+- Worker smoke: PASS, `run_once()` returns cleanly with no queued jobs.
+- Secret scan: PASS, `make secret-scan`, detect-secrets findings 0.
+- Python dependency audit: PASS, `make python-audit`, no known vulnerabilities.
+- npm dependency audit high-severity gate: PASS, `npm audit --audit-level=high`; 2 moderate Next/PostCSS findings remain.
+
 ## Known Limitations
 
 - Current API price analytics route does not yet infer benchmark series automatically; benchmark metrics return missing unless a caller supplies aligned benchmark inputs to the service.
 - Currency enforcement is strict for financial period normalization; market-cap currency conversion is not attempted.
 - npm audit high-severity gate passes; moderate findings remain in Next's transitive PostCSS dependency unless upstream provides a non-breaking fix.
+- Local Ollama report narration remains optional and off by default; deterministic reports remain the default behavior.
 - SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.
-
-## Stage 6 Handoff
-
-- Stage 6 may build on the merged Stage 5 peer set, screener, valuation, assumptions, sensitivity, evidence lineage, and no-target-price guard.
