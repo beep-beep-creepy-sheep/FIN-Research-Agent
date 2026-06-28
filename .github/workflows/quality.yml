@@ -23,6 +23,8 @@ jobs:
         run: PYTHONPATH=.:backend/src pytest -q
       - name: Stage 3 source fixture and download safety tests
         run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage3_official_sources.py
+      - name: Stage 4 professional analysis tests
+        run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage4_analysis.py
       - name: Python type check
         run: PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch
       - name: Alembic empty SQLite upgrade

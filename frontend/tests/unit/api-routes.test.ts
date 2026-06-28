@@ -3,6 +3,7 @@ import {
   API_ROUTES,
   createResearchRun,
   getAiStatus,
+  getCompanyAnalysis,
   getCompanyCharts,
   getCompanyMetrics,
   getConnectors,
@@ -189,6 +190,36 @@ describe("frontend API route contract", () => {
         warnings: ["basic_ev"],
       })
     ).toBe("calculated_with_warnings");
+  });
+
+  it("fetches deterministic professional analysis reports", async () => {
+    mockFetch(200, {
+      symbol: "600519",
+      executive_summary: "deterministic report",
+      key_findings: [],
+      financial_profile: { industry_packs: ["general"] },
+      growth: { state: "insufficient" },
+      profitability: { state: "insufficient" },
+      cash_flow_quality: { state: "insufficient" },
+      balance_sheet: { state: "insufficient" },
+      efficiency: { state: "insufficient" },
+      earnings_quality: { state: "insufficient" },
+      industry_specific: { state: "insufficient" },
+      market_risk: { state: "insufficient" },
+      data_quality: { state: "insufficient" },
+      evidence_map: [],
+      scores: [],
+      quality_flags: [],
+      risk_flags: [],
+      limitations: [],
+      generated_at: "2026-06-28T00:00:00Z",
+      analysis_version: "4.0.0",
+    });
+
+    const report = await getCompanyAnalysis("600519");
+
+    expect(report.analysis_version).toBe("4.0.0");
+    expect(report.executive_summary).toContain("deterministic");
   });
 });
 

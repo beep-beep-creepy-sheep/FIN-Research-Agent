@@ -79,6 +79,45 @@ export type FilingRecord = {
   error_message?: string | null;
 };
 
+export type AnalysisFinding = {
+  finding_id: string;
+  category: string;
+  title: string;
+  severity: string;
+  direction: string;
+  summary: string;
+  metric_codes?: string[];
+  values_used?: Record<string, unknown>;
+  source_fact_ids?: number[];
+  source_price_ids?: number[];
+  evidence?: Array<Record<string, unknown>>;
+  limitations?: string[];
+};
+
+export type AnalysisReport = {
+  symbol: string;
+  executive_summary: string;
+  key_findings: AnalysisFinding[];
+  financial_profile: Record<string, unknown>;
+  growth: Record<string, unknown>;
+  profitability: Record<string, unknown>;
+  cash_flow_quality: Record<string, unknown>;
+  balance_sheet: Record<string, unknown>;
+  efficiency: Record<string, unknown>;
+  earnings_quality: Record<string, unknown>;
+  industry_specific: Record<string, unknown>;
+  market_risk: Record<string, unknown>;
+  data_quality: Record<string, unknown>;
+  evidence_map: Array<Record<string, unknown>>;
+  scores: Array<Record<string, unknown>>;
+  quality_flags: Array<Record<string, unknown>>;
+  risk_flags: Array<Record<string, unknown>>;
+  limitations: string[];
+  markdown?: string | null;
+  generated_at: string;
+  analysis_version: string;
+};
+
 export async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -179,6 +218,10 @@ export function createOfficialFilingSyncJob(symbol: string): Promise<Record<stri
 
 export function getCompanyBenchmark(symbol: string): Promise<Record<string, unknown>> {
   return fetchJson<Record<string, unknown>>(`/v1/companies/${symbol}/benchmark`);
+}
+
+export function getCompanyAnalysis(symbol: string): Promise<AnalysisReport> {
+  return fetchJson<AnalysisReport>(`/v1/companies/${symbol}/analysis?include_evidence=true`);
 }
 
 export function getDataQualitySummary(): Promise<Record<string, unknown>> {
