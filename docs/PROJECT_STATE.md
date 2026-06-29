@@ -1,6 +1,6 @@
 # Project State
 
-Updated: 2026-06-28
+Updated: 2026-06-29
 
 ## Snapshot
 
@@ -10,9 +10,7 @@ Updated: 2026-06-28
 - Stage 4 status: PASS. Stage 4 is merged into `main`; GitHub Actions run `28318788762` for `5a4c42916308e8d18e74c62f3820fd45c20e86f4` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 5 status: PASS. Stage 5 is merged into `main`; GitHub Actions run `28326223624` for `b2612924a105feec0ddcf1b0a4c467ba7777bfdc` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 6 status: PASS. Stage 6 is merged into `main`; PR #7 `feat: implement stage 6 institutional reporting`; GitHub Actions run `28328935273` for `37af5282a0686c0286fa720c8bb64976c637356c` completed success for backend, frontend, and e2e on 2026-06-28.
-- Stage 7 status: PASS_LOCAL on `feature/stage-7-portfolio-risk-alerts-calendar`; GitHub Actions UNVERIFIED for Stage 7 until the feature branch/PR runs CI.
-- Current branch: `feature/stage-7-portfolio-risk-alerts-calendar`.
-- Current main head: `428ab8af77b5687e0e4baaae2c0dee5a61918615`.
+- Stage 7 status: PASS. Stage 7 is merged into `main`; PR #8 `feat: implement stage 7 portfolio risk alerts calendar`; GitHub Actions run `28330396205` for merge commit `6b8799840f40730efb9756355d73f4411e87351e` completed success for backend, frontend, and e2e on 2026-06-28.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -127,7 +125,7 @@ Updated: 2026-06-28
 - Portfolio report: implemented as deterministic Stage 7 sections with Stage 6 validation guard naming and missing-data limitations.
 - API/frontend: `/v1/portfolios`, `/v1/calendar/events`, portfolio detail analytics, alerts, calendar, and report endpoints; frontend pages at `/portfolios`, `/portfolios/[portfolioId]`, and `/calendar`.
 - Guardrails: no broker login, no account sync, no automatic trading, no real order placement, no external push service, no target price output, and no rebalancing instruction output.
-- Verification status: Stage 7 local quality gates passed on 2026-06-28; GitHub Actions are not yet verified for this branch.
+- Verification status: Stage 7 local quality gates passed on 2026-06-28; GitHub Actions run `28330396205` for merge commit `6b8799840f40730efb9756355d73f4411e87351e` completed success for backend, frontend, and e2e on 2026-06-28.
 
 ## Stage 7 Local Gates Run
 
@@ -161,3 +159,5 @@ Updated: 2026-06-28
 - Alert evaluation is local/manual and does not send external notifications.
 - SSE, SZSE, BSE, and SEC EDGAR live adapters remain future work; their fixture/definition coverage is not live coverage.
 - Live source smoke remains opt-in and must be reported separately from fixture verification.
+- Portfolios are local research portfolios only, not broker accounts.
+- Automatic trading, order placement, and automatic rebalancing remain out of scope.
