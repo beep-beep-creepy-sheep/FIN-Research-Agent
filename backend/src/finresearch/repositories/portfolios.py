@@ -67,12 +67,14 @@ class PortfolioRepository:
             row.archived = True
             return True
 
-    def holdings(self, portfolio_id: int) -> list[dict[str, object]]:
+    def holdings(self, portfolio_id: int, *, offset: int = 0, limit: int = 200) -> list[dict[str, object]]:
         with session_scope() as session:
             rows = session.scalars(
                 select(PortfolioHolding)
                 .where(PortfolioHolding.portfolio_id == portfolio_id)
                 .order_by(PortfolioHolding.symbol)
+                .offset(max(0, offset))
+                .limit(max(1, min(limit, 500)))
             ).all()
             return [_holding_dict(row) for row in rows]
 
@@ -109,12 +111,14 @@ class PortfolioRepository:
             session.delete(row)
             return True
 
-    def watch_items(self, portfolio_id: int) -> list[dict[str, object]]:
+    def watch_items(self, portfolio_id: int, *, offset: int = 0, limit: int = 200) -> list[dict[str, object]]:
         with session_scope() as session:
             rows = session.scalars(
                 select(PortfolioWatchItem)
                 .where(PortfolioWatchItem.portfolio_id == portfolio_id)
                 .order_by(PortfolioWatchItem.symbol)
+                .offset(max(0, offset))
+                .limit(max(1, min(limit, 500)))
             ).all()
             return [_watch_item_dict(row) for row in rows]
 
@@ -197,12 +201,14 @@ class PortfolioRepository:
             session.delete(row)
             return True
 
-    def alert_events(self, portfolio_id: int) -> list[dict[str, object]]:
+    def alert_events(self, portfolio_id: int, *, offset: int = 0, limit: int = 200) -> list[dict[str, object]]:
         with session_scope() as session:
             rows = session.scalars(
                 select(PortfolioAlertEvent)
                 .where(PortfolioAlertEvent.portfolio_id == portfolio_id)
                 .order_by(PortfolioAlertEvent.triggered_at.desc(), PortfolioAlertEvent.id.desc())
+                .offset(max(0, offset))
+                .limit(max(1, min(limit, 500)))
             ).all()
             return [_alert_event_dict(row) for row in rows]
 
@@ -254,6 +260,8 @@ class PortfolioRepository:
         portfolio_id: int | None = None,
         symbol: str | None = None,
         severity: str | None = None,
+        offset: int = 0,
+        limit: int = 200,
     ) -> list[dict[str, object]]:
         with session_scope() as session:
             statement = select(PortfolioCalendarEvent).order_by(PortfolioCalendarEvent.event_date, PortfolioCalendarEvent.id)
@@ -267,6 +275,7 @@ class PortfolioRepository:
                 statement = statement.where(PortfolioCalendarEvent.symbol == symbol.upper())
             if severity:
                 statement = statement.where(PortfolioCalendarEvent.severity == severity)
+            statement = statement.offset(max(0, offset)).limit(max(1, min(limit, 500)))
             return [_calendar_event_dict(row) for row in session.scalars(statement).all()]
 
     def add_calendar_event(self, payload: dict[str, object]) -> dict[str, object]:

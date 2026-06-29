@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from shutil import copyfileobj
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import BaseModel, Field
 
 from finresearch.api.dependencies import library_path
 from finresearch.repositories.documents import DocumentRepository
@@ -18,7 +18,7 @@ router = APIRouter()
 
 class SearchRequest(BaseModel):
     query: str
-    limit: int = 8
+    limit: int = Field(default=8, ge=1, le=100)
 
 
 @router.get("")
@@ -35,8 +35,12 @@ def get_document(document_id: int, db_path: Path = Depends(library_path)) -> dic
 
 
 @router.get("/{document_id}/chunks")
-def get_document_chunks(document_id: int, db_path: Path = Depends(library_path)) -> list[dict[str, object]]:
-    return DocumentRepository(db_path).chunks(document_id)
+def get_document_chunks(
+    document_id: int,
+    limit: int = Query(default=100, ge=1, le=500),
+    db_path: Path = Depends(library_path),
+) -> list[dict[str, object]]:
+    return DocumentRepository(db_path).chunks(document_id)[:limit]
 
 
 @router.post("/upload")

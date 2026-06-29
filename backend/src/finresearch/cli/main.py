@@ -11,6 +11,7 @@ from finresearch.services.company_analysis import CompanyAnalysisService
 from finresearch.services.company_sync import SyncCompanyService
 from finresearch.services.job_service import JobService
 from finresearch.services.research_service import ResearchService
+from finresearch.settings import validate_settings
 
 
 app = typer.Typer(help="Fin Research Agent product backend CLI")
@@ -54,10 +55,17 @@ def run_job_once() -> None:
     console.print_json(data=result or {"status": "idle"})
 
 
+@app.command("config-check")
+def config_check() -> None:
+    result = validate_settings()
+    console.print_json(data=result)
+    if result["status"] != "passed":
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     app()
 
 
 if __name__ == "__main__":
     main()
-

@@ -31,10 +31,16 @@ jobs:
         run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage6_reports.py
       - name: Stage 7 portfolio risk alerts tests
         run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage7_portfolio_risk_alerts.py
+      - name: Stage 8 production security tests
+        run: PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage8_production_security.py
       - name: Python type check
         run: PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch
       - name: Alembic empty SQLite upgrade
-        run: ALEMBIC_DATABASE_URL=sqlite:///./data/ci-empty.sqlite PYTHONPATH=.:backend/src alembic upgrade head
+        run: make sqlite-alembic-smoke
+      - name: Config validation smoke
+        run: APP_ENV=test DATA_DIR=data DATABASE_URL=sqlite:///data/ci-config.sqlite LLM_ENABLED=false PYTHONPATH=.:backend/src python -m finresearch.cli.main config-check
+      - name: Release smoke
+        run: make release-smoke
       - name: tracked-secret-file-check
         run: make tracked-secret-file-check
       - name: Secret scan
