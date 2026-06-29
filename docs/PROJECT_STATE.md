@@ -11,6 +11,7 @@ Updated: 2026-06-29
 - Stage 5 status: PASS. Stage 5 is merged into `main`; GitHub Actions run `28326223624` for `b2612924a105feec0ddcf1b0a4c467ba7777bfdc` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 6 status: PASS. Stage 6 is merged into `main`; PR #7 `feat: implement stage 6 institutional reporting`; GitHub Actions run `28328935273` for `37af5282a0686c0286fa720c8bb64976c637356c` completed success for backend, frontend, and e2e on 2026-06-28.
 - Stage 7 status: PASS. Stage 7 is merged into `main`; PR #8 `feat: implement stage 7 portfolio risk alerts calendar`; GitHub Actions run `28330396205` for merge commit `6b8799840f40730efb9756355d73f4411e87351e` completed success for backend, frontend, and e2e on 2026-06-28.
+- Stage 8 status: PARTIAL_LOCAL on `feature/stage-8-production-security-release`. Production/security/config/status hardening, Stage 8 focused tests, CI hooks, and release documentation are in progress. GitHub Actions are UNVERIFIED for Stage 8 until the branch/PR runs CI.
 
 ## Local Gates Run During Stage 2 Completion
 
@@ -149,8 +150,28 @@ Updated: 2026-06-29
 - Python dependency audit: PASS, `make python-audit`, no known vulnerabilities.
 - npm dependency audit high-severity gate: PASS, `npm audit --audit-level=high`; 2 moderate Next/PostCSS findings remain.
 
+## Stage 8 Local Gates Run
+
+- Stage 8 focused tests: PASS, `PYTHONPATH=.:backend/src pytest -q backend/tests/test_stage8_production_security.py`, 10 passed.
+- Python tests: PASS, `PYTHONPATH=.:backend/src pytest -q`, 155 passed.
+- Ruff: PASS, `ruff check .`.
+- Python type check: PASS, `PYTHONPATH=.:backend/src python -m mypy backend/src/finresearch`, 102 files, 0 errors.
+- Frontend tests: PASS, `cd frontend && npm test`, 16 passed.
+- Frontend TypeScript: PASS after `npm run build` generated `.next/types`, `cd frontend && npx tsc --noEmit`.
+- Frontend build: PASS, `cd frontend && npm run build`.
+- Playwright Chromium: PASS, 8 passed with local FastAPI, fixture official source mode, no LLM, no live source smoke, and no broker/trading dependency.
+- SQLite Alembic empty upgrade and repeated upgrade: PASS, `make sqlite-alembic-smoke`, unique head `0007_stage7_portfolio`.
+- PostgreSQL migration verification: BLOCKED_LOCAL_TOOLING, `psql` and `pg_isready` are not installed in this local environment.
+- FastAPI/config/release smoke: PASS, `make config-check` and `make release-smoke`.
+- Worker smoke: PASS, `run_once()` returned idle cleanly against a local smoke database.
+- Secret scan: PASS, `make tracked-secret-file-check` and `make secret-scan`; detect-secrets findings 0.
+- Python dependency audit: PASS, `make python-audit`, no known vulnerabilities.
+- npm dependency audit high-severity gate: PASS, `npm audit --audit-level=high`; 2 moderate Next/PostCSS findings remain and require a breaking forced upgrade, so no force upgrade was applied.
+- GitHub Actions for Stage 8: UNVERIFIED until the Stage 8 branch/PR runs backend, frontend, and e2e jobs.
+
 ## Known Limitations
 
+- Stage 8 final RC is not declared until full local gates and GitHub Actions backend/frontend/e2e pass on the Stage 8 branch.
 - Current API price analytics route does not yet infer benchmark series automatically; benchmark metrics return missing unless a caller supplies aligned benchmark inputs to the service.
 - Currency enforcement is strict for financial period normalization; market-cap currency conversion is not attempted.
 - npm audit high-severity gate passes; moderate findings remain in Next's transitive PostCSS dependency unless upstream provides a non-breaking fix.

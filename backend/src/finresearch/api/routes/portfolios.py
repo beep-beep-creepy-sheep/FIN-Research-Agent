@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from finresearch.repositories.portfolios import PortfolioRepository
@@ -110,9 +110,13 @@ def archive_portfolio(portfolio_id: int) -> dict[str, object]:
 
 
 @router.get("/portfolios/{portfolio_id}/holdings")
-def list_holdings(portfolio_id: int) -> list[dict[str, object]]:
+def list_holdings(
+    portfolio_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[dict[str, object]]:
     _require_portfolio(portfolio_id)
-    return PortfolioRepository().holdings(portfolio_id)
+    return PortfolioRepository().holdings(portfolio_id, offset=offset, limit=limit)
 
 
 @router.post("/portfolios/{portfolio_id}/holdings")
@@ -139,9 +143,13 @@ def delete_holding(portfolio_id: int, holding_id: int) -> dict[str, object]:
 
 
 @router.get("/portfolios/{portfolio_id}/watch-items")
-def list_watch_items(portfolio_id: int) -> list[dict[str, object]]:
+def list_watch_items(
+    portfolio_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[dict[str, object]]:
     _require_portfolio(portfolio_id)
-    return PortfolioRepository().watch_items(portfolio_id)
+    return PortfolioRepository().watch_items(portfolio_id, offset=offset, limit=limit)
 
 
 @router.post("/portfolios/{portfolio_id}/watch-items")
@@ -232,9 +240,13 @@ def evaluate_alerts(portfolio_id: int) -> dict[str, object]:
 
 
 @router.get("/portfolios/{portfolio_id}/alerts/events")
-def list_alert_events(portfolio_id: int) -> list[dict[str, object]]:
+def list_alert_events(
+    portfolio_id: int,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[dict[str, object]]:
     _require_portfolio(portfolio_id)
-    return PortfolioRepository().alert_events(portfolio_id)
+    return PortfolioRepository().alert_events(portfolio_id, offset=offset, limit=limit)
 
 
 @router.post("/portfolios/{portfolio_id}/alerts/events/{event_id}/acknowledge")
@@ -260,6 +272,8 @@ def list_calendar_events(
     portfolio_id: int | None = None,
     symbol: str | None = None,
     severity: str | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=500),
 ) -> dict[str, object]:
     return CalendarService().list_events(
         start_date=start_date,
@@ -267,6 +281,8 @@ def list_calendar_events(
         portfolio_id=portfolio_id,
         symbol=symbol,
         severity=severity,
+        offset=offset,
+        limit=limit,
     )
 
 

@@ -58,6 +58,11 @@ describe("frontend API route contract", () => {
     expect(API_ROUTES.screenerPresets).toBe("/v1/screener/presets");
     expect(API_ROUTES.screenerExport).toBe("/v1/screener/export");
     expect(API_ROUTES.screensQueryAlias).toBe("/v1/screens/query");
+    expect(API_ROUTES.health).toBe("/health");
+    expect(API_ROUTES.readiness).toBe("/ready");
+    expect(API_ROUTES.version).toBe("/version");
+    expect(API_ROUTES.systemStatus).toBe("/v1/system/status");
+    expect(API_ROUTES.systemConfigCheck).toBe("/v1/system/config-check");
   });
 
   it("surfaces market API failures instead of treating HTTP errors as empty data", async () => {

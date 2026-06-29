@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 from finresearch.services.screener import ScreenQuery, ScreenerService
@@ -92,7 +92,7 @@ def export_screener(
     industry: str | None = None,
     sort_by: str = "revenue",
     sort_direction: str = "desc",
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
 ) -> Response:
     try:
         media_type, body = ScreenerService().export(

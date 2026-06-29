@@ -32,6 +32,11 @@ export const API_ROUTES = {
   screenerPresets: "/v1/screener/presets",
   screenerExport: "/v1/screener/export",
   screensQueryAlias: "/v1/screens/query",
+  health: "/health",
+  readiness: "/ready",
+  version: "/version",
+  systemStatus: "/v1/system/status",
+  systemConfigCheck: "/v1/system/config-check",
 } as const;
 
 export type CompanySummary = {

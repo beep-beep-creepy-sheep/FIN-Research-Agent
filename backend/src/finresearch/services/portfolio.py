@@ -322,6 +322,8 @@ class CalendarService:
             portfolio_id=_int_or_none(filters.get("portfolio_id")),
             symbol=_str_or_none(filters.get("symbol")),
             severity=_str_or_none(filters.get("severity")),
+            offset=_int_or_none(filters.get("offset")) or 0,
+            limit=_int_or_none(filters.get("limit")) or 200,
         )
         return {"events": events, "state": "available" if events else "no_known_events"}
 

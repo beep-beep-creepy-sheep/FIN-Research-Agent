@@ -83,3 +83,22 @@ test("calendar page shows no-known-events state and supports manual events", asy
   await page.getByRole("button", { name: "Add Manual Event" }).click();
   await expect(page.getByText("event added")).toBeVisible();
 });
+
+test("backend system health and config are production-safe by default", async ({ request }) => {
+  const health = await request.get("http://127.0.0.1:8000/health");
+  expect(health.ok()).toBeTruthy();
+  expect(await health.json()).toEqual({ status: "ok" });
+
+  const ready = await request.get("http://127.0.0.1:8000/ready");
+  expect(ready.ok()).toBeTruthy();
+  expect((await ready.json()).status).toBe("ready");
+
+  const config = await request.get("http://127.0.0.1:8000/v1/system/config-check");
+  expect(config.ok()).toBeTruthy();
+  const payload = await config.json();
+  expect(payload.status).toBe("passed");
+  expect(payload.summary.llm.enabled).toBe(false);
+  expect(payload.summary.external_network.run_live_source_tests).toBe(false);
+  expect(JSON.stringify(payload.summary.secrets)).not.toMatch(/sk-[A-Za-z0-9]/);
+  expect(JSON.stringify(payload)).not.toMatch(/password|cookie|bearer/i);
+});
